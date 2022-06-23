@@ -1,0 +1,12 @@
+cython
+numpy
+tqdm
+opencv-contrib-python
+pillow
+absl-py
+tensorflow
+matplotlib
+# Data preprocessing relations
+scipy
+# ResNet-RS trained model
+git+https://github.com/sebastian-sz/resnet-rs-keras@main
