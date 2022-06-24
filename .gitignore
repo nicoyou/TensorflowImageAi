@@ -1,4 +1,5 @@
 .venv/
+anime_face_detector/LICENSE
 
 # キャラクターのオリジナルデータセット
 dataset/
