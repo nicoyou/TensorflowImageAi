@@ -5,3 +5,5 @@ anime_face_detector/LICENSE
 dataset/
 # その他画像データ
 image/
+# テスト段階のプログラム
+test/
