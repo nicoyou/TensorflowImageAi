@@ -1,14 +1,15 @@
 import argparse
 import json
 import os
-import time
 import sys
+import time
 
 sys.path.append("anime_face_detector")
 
 import cv2
 import numpy as np
 from PIL import Image
+
 from _tf_compat_import import compat_tensorflow as tf
 from faster_rcnn_wrapper import FasterRCNNSlim
 from nms_wrapper import NMSType, NMSWrapper
@@ -75,37 +76,36 @@ def load_file_from_dir(dir_path):
 
 def fmt_time(dtime):
 	if dtime <= 0:
-		return '0:00.000'
+		return "0:00.000"
 	elif dtime < 60:
-		return '0:%02d.%03d' % (int(dtime), int(dtime * 1000) % 1000)
+		return "0:%02d.%03d" % (int(dtime), int(dtime * 1000) % 1000)
 	elif dtime < 3600:
-		return '%d:%02d.%03d' % (int(dtime / 60), int(dtime) % 60, int(dtime * 1000) % 1000)
+		return "%d:%02d.%03d" % (int(dtime / 60), int(dtime) % 60, int(dtime * 1000) % 1000)
 	else:
-		return '%d:%02d:%02d.%03d' % (int(dtime / 3600), int((dtime % 3600) / 60), int(dtime) % 60,
-									  int(dtime * 1000) % 1000)
+		return "%d:%02d:%02d.%03d" % (int(dtime / 3600), int((dtime % 3600) / 60), int(dtime) % 60, int(dtime * 1000) % 1000)
 
 
 def main():
-	parser = argparse.ArgumentParser(description='Anime face detector demo')
-	parser.add_argument('-i', help='The input path of an image or directory', required=True, dest='input', type=str)
-	parser.add_argument('-o', help='The output json path of the detection result', dest='output')
-	parser.add_argument('-nms', help='Change the threshold for non maximum suppression',
-						dest='nms_thresh', default=0.3, type=float)
-	parser.add_argument('-conf', help='Change the threshold for class regression', dest='conf_thresh',
+	parser = argparse.ArgumentParser(description="Anime face detector demo")
+	parser.add_argument("-i", help="The input path of an image or directory", required=True, dest="input", type=str)
+	parser.add_argument("-o", help="The output json path of the detection result", dest="output")
+	parser.add_argument("-nms", help="Change the threshold for non maximum suppression",
+						dest="nms_thresh", default=0.3, type=float)
+	parser.add_argument("-conf", help="Change the threshold for class regression", dest="conf_thresh",
 						default=0.8, type=float)
-	parser.add_argument('-model', help='Specify a new path for model', dest='model', type=str,
-						default='model/res101_faster_rcnn_iter_60000.ckpt')
-	parser.add_argument('-nms-type', help='Type of nms', choices=['PY_NMS', 'CPU_NMS', 'GPU_NMS'], dest='nms_type',
-						default='CPU_NMS')
-	parser.add_argument('-crop-location', help='The output folder to place the cropped images', dest='crop_output_image_location')
-	parser.add_argument('-start-output', help='Start the numbering of the cropped images filename', dest='start_output_number', 
+	parser.add_argument("-model", help="Specify a new path for model", dest="model", type=str,
+						default="model/res101_faster_rcnn_iter_60000.ckpt")
+	parser.add_argument("-nms-type", help="Type of nms", choices=["PY_NMS", "CPU_NMS", "GPU_NMS"], dest="nms_type",
+						default="CPU_NMS")
+	parser.add_argument("-crop-location", help="The output folder to place the cropped images", dest="crop_output_image_location")
+	parser.add_argument("-start-output", help="Start the numbering of the cropped images filename", dest="start_output_number", 
 						default=0, type=int)
-	parser.add_argument('-crop-width', help='The width of images to crop', dest='crop_width', type=int)
-	parser.add_argument('-crop-height', help='The height of images to crop', dest='crop_height', type=int)
+	parser.add_argument("-crop-width", help="The width of images to crop", dest="crop_width", type=int)
+	parser.add_argument("-crop-height", help="The height of images to crop", dest="crop_height", type=int)
 
 	args = parser.parse_args()
 
-	assert os.path.exists(args.input), 'The input path does not exists'
+	assert os.path.exists(args.input), "The input path does not exists"
 
 	if os.path.isdir(args.input):
 		files = load_file_from_dir(args.input)
@@ -113,14 +113,14 @@ def main():
 		files = [args.input]
 	file_len = len(files)
 
-	if args.nms_type == 'PY_NMS':
+	if args.nms_type == "PY_NMS":
 		nms_type = NMSType.PY_NMS
-	elif args.nms_type == 'CPU_NMS':
+	elif args.nms_type == "CPU_NMS":
 		nms_type = NMSType.CPU_NMS
-	elif args.nms_type == 'GPU_NMS':
+	elif args.nms_type == "GPU_NMS":
 		nms_type = NMSType.GPU_NMS
 	else:
-		raise ValueError('Incorrect NMS Type, not supported yet')
+		raise ValueError("Incorrect NMS Type, not supported yet")
 
 	nms = NMSWrapper(nms_type)
 
@@ -140,7 +140,7 @@ def main():
 	for idx, file in enumerate(files):
 		elapsed = time.time() - time_start
 		eta = (file_len - idx) * elapsed / idx if idx > 0 else 0
-		print('[%d/%d] Elapsed: %s, ETA: %s >> %s' % (idx+1, file_len, fmt_time(elapsed), fmt_time(eta), file))
+		print("[%d/%d] Elapsed: %s, ETA: %s >> %s" % (idx+1, file_len, fmt_time(elapsed), fmt_time(eta), file))
 		img = cv2.imread(file)
 		if img is None:
 			continue
@@ -157,8 +157,8 @@ def main():
 		result[file] = []
 		for i in range(scores.shape[0]):
 			x1, y1, x2, y2 = boxes[i, :].tolist()
-			new_result = {'score': float(scores[i]),
-						  'bbox': [x1, y1, x2, y2]}
+			new_result = {"score": float(scores[i]),
+						  "bbox": [x1, y1, x2, y2]}
 			result[file].append(new_result)
 
 			if args.output is None and args.crop_output_image_location is None:
@@ -176,94 +176,70 @@ def main():
 				args.start_output_number += 1
 
 		if args.output:
-			if ((idx+1) % 1000) == 0:
+			if ((idx + 1) % 1000) == 0:
 				# saving the temporary result
-				with open(args.output, 'w') as f:
+				with open(args.output, "w") as f:
 					json.dump(result, f)
 		elif args.crop_output_image_location is None:
 			cv2.imshow(file, img)
 
 	if args.output:
-		with open(args.output, 'w') as f:
+		with open(args.output, "w") as f:
 			json.dump(result, f)
 	else:
 		cv2.waitKey()
 
-def anime_face_detector(file_path, nms_type = NMSType.CPU_NMS):
-	nms_thresh = 0.3
-	conf_thresh = 0.8
-	start_output_number = 0
-	model = "anime_face_detector/model/res101_faster_rcnn_iter_60000.ckpt"
-	crop_output_image_location = None
-	crop_width = None
-	crop_height = None
+class AnimeFaceDetector():
+	def __init__(self, nms_type = NMSType.CPU_NMS):
+		model = "anime_face_detector/model/res101_faster_rcnn_iter_60000.ckpt"
 
+		self.nms = NMSWrapper(nms_type)
 
-	assert os.path.exists(file_path), 'The input path does not exists'
+		cfg = tf.ConfigProto()
+		cfg.gpu_options.allow_growth = True
+		self.sess = tf.Session(config=cfg)
 
-	if os.path.isdir(file_path):
-		files = load_file_from_dir(file_path)
-	else:
-		files = [file_path]
-	file_len = len(files)
+		self.net = FasterRCNNSlim()
+		saver = tf.train.Saver()
 
-	nms = NMSWrapper(nms_type)
+		saver.restore(self.sess, model)
+		return
 
-	cfg = tf.ConfigProto()
-	cfg.gpu_options.allow_growth = True
-	sess = tf.Session(config=cfg)
+	def get_faces(self, file_path, conf_thresh = 0.8, nms_thresh = 0.3):
+		if not os.path.exists(file_path):
+			return None
 
-	net = FasterRCNNSlim()
-	saver = tf.train.Saver()
+		if type(file_path) not in [list, tuple]:
+			file_path = (file_path, )
 
-	saver.restore(sess, model)
+		result = []
+		time_start = time.time()
 
-	result = {}
+		for idx, file in enumerate(file_path):
+			elapsed = time.time() - time_start
+			eta = (len(file_path) - idx) * elapsed / idx if idx > 0 else 0
+			print("[%d/%d] Elapsed: %s, ETA: %s >> %s" % (idx+1, len(file_path), fmt_time(elapsed), fmt_time(eta), file))
+			pil_img = Image.open(file)				# Pillowで画像ファイルを開く
+			img = np.array(pil_img)					# PillowからNumPyへ変換
+			if img.ndim == 3:						# カラー画像のときは、RGBからBGRへ変換する
+				img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+			if img is None:
+				continue
+			scores, boxes = detect(self.sess, self.net, img)
+			boxes = boxes[:, 4:8]
+			scores = scores[:, 1]
+			keep = self.nms(np.hstack([boxes, scores[:, np.newaxis]]).astype(np.float32), nms_thresh)
+			boxes = boxes[keep, :]
+			scores = scores[keep]
+			inds = np.where(scores >= conf_thresh)[0]
+			scores = scores[inds]
+			boxes = boxes[inds, :]
 
-	time_start = time.time()
+			for i in range(scores.shape[0]):
+				x1, y1, x2, y2 = boxes[i, :].tolist()
+				new_result = {"score": float(scores[i]), "bbox": [x1, y1, x2, y2]}
+				result.append(new_result)
+		return result
 
-	for idx, file in enumerate(files):
-		elapsed = time.time() - time_start
-		eta = (file_len - idx) * elapsed / idx if idx > 0 else 0
-		print('[%d/%d] Elapsed: %s, ETA: %s >> %s' % (idx+1, file_len, fmt_time(elapsed), fmt_time(eta), file))
-		pil_img = Image.open(file)			# Pillowで画像ファイルを開く
-		img = np.array(pil_img)					# PillowからNumPyへ変換
-		# カラー画像のときは、RGBからBGRへ変換する
-		if img.ndim == 3:
-			img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-		if img is None:
-			continue
-		scores, boxes = detect(sess, net, img)
-		boxes = boxes[:, 4:8]
-		scores = scores[:, 1]
-		keep = nms(np.hstack([boxes, scores[:, np.newaxis]]).astype(np.float32), nms_thresh)
-		boxes = boxes[keep, :]
-		scores = scores[keep]
-		inds = np.where(scores >= conf_thresh)[0]
-		scores = scores[inds]
-		boxes = boxes[inds, :]
-
-		result[file] = []
-		for i in range(scores.shape[0]):
-			x1, y1, x2, y2 = boxes[i, :].tolist()
-			new_result = {'score': float(scores[i]),
-						  'bbox': [x1, y1, x2, y2]}
-			result[file].append(new_result)
-
-			# if output is None and crop_output_image_location is None:
-			#     cv2.rectangle(img, (int(x1), int(y1)), (int(x2), int(y2)), (0, 0, 255), 2)
-
-			# if crop_output_image_location:
-			#     cropped_image = img[int(y1):int(y2), int(x1):int(x2)]
-
-			#     if crop_width and crop_height:
-			#         cropped_image = cv2.resize(cropped_image, 
-			#                                   (crop_width, crop_height), 
-			#                                   interpolation = cv2.INTER_AREA)
-
-			#     cv2.imwrite(crop_output_image_location + str(start_output_number) + ".jpg", cropped_image)
-			#     start_output_number += 1
-	return result
-
-if __name__ == '__main__':
+if __name__ == "__main__":
 	main()
