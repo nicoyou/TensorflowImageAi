@@ -220,9 +220,9 @@ class AnimeFaceDetector():
 			eta = (len(file_path) - idx) * elapsed / idx if idx > 0 else 0
 			print("[%d/%d] Elapsed: %s, ETA: %s >> %s" % (idx+1, len(file_path), fmt_time(elapsed), fmt_time(eta), file))
 			pil_img = Image.open(file)				# Pillowで画像ファイルを開く
+			pil_img = pil_img.convert("RGB")
 			img = np.array(pil_img)					# PillowからNumPyへ変換
-			if img.ndim == 3:						# カラー画像のときは、RGBからBGRへ変換する
-				img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+			img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
 			if img is None:
 				continue
 			scores, boxes = detect(self.sess, self.net, img)
