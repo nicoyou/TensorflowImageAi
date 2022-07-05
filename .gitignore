@@ -1,4 +1,5 @@
 .venv/
+__pycache__
 anime_face_detector/LICENSE
 
 # キャラクターのオリジナルデータセット
@@ -7,3 +8,5 @@ dataset/
 image/
 # テスト段階のプログラム
 test/
+# モデルの学習結果
+model/
