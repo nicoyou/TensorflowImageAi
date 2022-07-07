@@ -66,8 +66,8 @@ def create_model_vgg16(num_classes):
 
 	top_model =  tf.keras.Sequential()
 	top_model.add(tf.keras.layers.Flatten(input_shape=vgg16.output_shape[1:]))
-	top_model.add(tf.keras.layers.Dense(256, activation="relu"))
-	top_model.add(tf.keras.layers.Dropout(0.5))
+	top_model.add(tf.keras.layers.Dense(512, activation="relu"))
+	top_model.add(tf.keras.layers.Dropout(0.25))
 	top_model.add(tf.keras.layers.Dense(num_classes, activation="softmax"))
 
 	model = tf.keras.models.Model(
@@ -81,7 +81,7 @@ def create_model_vgg16(num_classes):
 	# 最適化アルゴリズムをSGD（確率的勾配降下法）とし最適化の学習率と修正幅を指定してコンパイルする。
 	model.compile(
 		loss="categorical_crossentropy",
-		optimizer=tf.keras.optimizers.SGD(lr=1e-4, momentum=0.9),
+		optimizer=tf.keras.optimizers.SGD(learning_rate=0.0005, momentum=0.1),
 		metrics=["accuracy"]
 	)
 	return model
