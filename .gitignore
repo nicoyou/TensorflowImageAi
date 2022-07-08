@@ -10,3 +10,5 @@ image/
 test/
 # モデルの学習結果
 model/
+# ログ
+data/
