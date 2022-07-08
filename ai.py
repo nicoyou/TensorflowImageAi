@@ -20,6 +20,10 @@ class DataKey(str, enum.Enum):
 	model = "model"
 	class_num = "class_num"
 	class_indices = "class_indices"
+	accuracy = "accuracy"
+	val_accuracy = "val_accuracy"
+	loss = "loss"
+	val_loss = "val_loss"
 
 class ImageClassificationAi():
 	def __init__(self, model_name: str):
@@ -38,13 +42,13 @@ class ImageClassificationAi():
 			return func(self, *args, **kwargs)
 		return wrapper
 
+	# 画像分類モデルを作成する
 	def create_model(self, model_type: ModelType, num_classes: int):
 		match model_type:
 			case ModelType.vgg16_512:
 				return self.create_model_vgg16(num_classes)
 		return None
 
-	# 画像分類モデルを作成する
 	def create_model_vgg16(self, num_classes):
 		# model = tf.keras.Sequential([
 		# 	tf.keras.layers.Rescaling(1./255),
@@ -112,7 +116,7 @@ class ImageClassificationAi():
 		# 最適化アルゴリズムをSGD（確率的勾配降下法）とし最適化の学習率と修正幅を指定してコンパイルする。
 		model.compile(
 			loss="categorical_crossentropy",
-			optimizer=tf.keras.optimizers.SGD(learning_rate=0.0005, momentum=0.1),
+			optimizer=tf.keras.optimizers.Adam(learning_rate=0.0001),
 			metrics=["accuracy"]
 		)
 		return model
@@ -135,7 +139,7 @@ class ImageClassificationAi():
 		# image = tf.expand_dims(image, 0)		# 次元を一つ増やしてバッチ化する
 		# return image
 
-	def train_model(self, dataset_path, model_type: ModelType = ModelType.unknown):
+	def train_model(self, dataset_path, epochs: int = 6, model_type: ModelType = ModelType.unknown):
 		batch_size = 32
 		train_ds = tf.keras.utils.image_dataset_from_directory(
 			dataset_path,
@@ -184,13 +188,50 @@ class ImageClassificationAi():
 		# train_ds = train_ds.cache().prefetch(buffer_size=AUTOTUNE)
 		# val_ds = val_ds.cache().prefetch(buffer_size=AUTOTUNE)
 
-		history = self.model.fit(train_ds, validation_data=val_ds, epochs=3)
+		history = self.model.fit(train_ds, validation_data=val_ds, epochs=epochs)
 		self.model.save_weights(pathlib.Path(MODEL_DIR, self.model_name))
 		self.model_data[DataKey.class_num] = len(class_names)
 		self.model_data[DataKey.class_indices] = train_ds.class_names
 
+		for k, v in history.history.items():
+			if k in self.model_data:
+				self.model_data[k] += v
+			else:
+				self.model_data[k] = v
+
 		lib.save_json(pathlib.Path(MODEL_DIR, self.model_name + ".json"), self.model_data)
+		self.show_history()
 		self.check_model_sample(dataset_path)
+		return
+
+	# モデルの学習履歴をグラフで表示する
+	def show_history(self, separate = True):
+		if separate:
+			plt.plot(self.model_data[DataKey.accuracy])
+			plt.plot(self.model_data[DataKey.val_accuracy])
+			plt.title("Model accuracy")
+			plt.ylabel("Accuracy")
+			plt.xlabel("Epoch")
+			plt.legend(["Train", "Test"], loc="upper left")
+			plt.show()
+
+			plt.plot(self.model_data[DataKey.loss])
+			plt.plot(self.model_data[DataKey.val_loss])
+			plt.title("Model loss")
+			plt.ylabel("Loss")
+			plt.xlabel("Epoch")
+			plt.legend(["Train", "Test"], loc="upper left")
+			plt.show()
+		else:
+			plt.plot(self.model_data[DataKey.accuracy])
+			plt.plot(self.model_data[DataKey.val_accuracy])
+			plt.plot(self.model_data[DataKey.loss])
+			plt.plot(self.model_data[DataKey.val_loss])
+			plt.title("Model train history")
+			plt.ylabel("Accuracy & loss")
+			plt.xlabel("Epoch")
+			plt.legend(["Train accuracy", "Test accuracy", "Train loss", "Test loss"], loc="upper left")
+			plt.show()
 		return
 
 	def load_model(self):
