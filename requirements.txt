@@ -6,3 +6,5 @@ pillow
 absl-py
 tensorflow
 matplotlib
+# Data preprocessing relations
+scipy

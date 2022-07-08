@@ -5,6 +5,7 @@ import random
 import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
+import keras
 from PIL import Image
 
 import image_manager
@@ -141,57 +142,43 @@ class ImageClassificationAi():
 
 	def train_model(self, dataset_path, epochs: int = 6, model_type: ModelType = ModelType.unknown):
 		batch_size = 32
-		train_ds = tf.keras.utils.image_dataset_from_directory(
+		
+		params = {
+			# "rescale": 1./255,
+			"horizontal_flip": True,			# 左右を反転する
+			"rotation_range": 25,				# 度数法で最大変化時の角度を指定
+			"channel_shift_range": 20,			# 各画素値の値を加算・減算します。パラメータとしては変化の最大量を指定します。
+			"height_shift_range": 0.03,			# 中心位置を相対的にずらす ( 元画像の高さ X 値 の範囲内で垂直方向にずらす )
+			"width_shift_range": 0.03,
+			"validation_split": 0.1,			# 全体に対するテストデータの割合
+		}
+		generator = keras.preprocessing.image.ImageDataGenerator(**params)
+		train_ds = generator.flow_from_directory(
 			dataset_path,
-			validation_split=0.15,
-			subset="training",
-			seed=123,
-			image_size=(self.img_height, self.img_width),
-			batch_size=batch_size,
-			label_mode="categorical"				# 転移学習の場合はこれを指定しないとクラッシュする
-		)
-		val_ds = tf.keras.utils.image_dataset_from_directory(
+			target_size = (self.img_height, self.img_width),
+			batch_size = batch_size,
+			class_mode="categorical",
+			subset = "training")
+		val_ds = generator.flow_from_directory(
 			dataset_path,
-			validation_split=0.15,
-			subset="validation",
-			seed=123,
-			image_size=(self.img_height, self.img_width),
-			batch_size=batch_size,
-			label_mode="categorical"
-		)
-		class_names = train_ds.class_names
+			target_size = (self.img_height, self.img_width),
+			batch_size = batch_size,
+			class_mode="categorical",
+			subset = "validation")
+
 		if self.model is None:
 			if model_type == ModelType.unknown:
 				lib.print_error_log("モデルを新規作成する場合はモデルタイプを指定してください")
 				return None
 			self.model_data = {}
 			self.model_data[DataKey.model] = model_type			# モデル作成時のみモデルタイプを上書きする
-			self.model = self.create_model(model_type, len(class_names))
-		# plt.figure(figsize=(10, 10))
-		# for images, labels in train_ds.take(1):
-		# 	for i in range(9):
-		# 		ax = plt.subplot(3, 3, i + 1)
-		# 		plt.imshow(images[i].numpy().astype("uint8"))
-		# 		plt.title(train_ds.class_names[labels[i]])
-		# 		plt.axis("off")
+			self.model = self.create_model(model_type, len(train_ds.class_indices))
 
-		# plt.show()
-
-		# normalization_layer = tf.keras.layers.Rescaling(1./255)
-		# normalized_ds = train_ds.map(lambda x, y: (normalization_layer(x), y))
-		# image_batch, labels_batch = next(iter(normalized_ds))
-		# first_image = image_batch[0]
-		# # Notice the pixel values are now in `[0,1]`.
-		# print(np.min(first_image), np.max(first_image))
-
-		AUTOTUNE = tf.data.AUTOTUNE
-		# train_ds = train_ds.cache().prefetch(buffer_size=AUTOTUNE)
-		# val_ds = val_ds.cache().prefetch(buffer_size=AUTOTUNE)
 
 		history = self.model.fit(train_ds, validation_data=val_ds, epochs=epochs)
 		self.model.save_weights(pathlib.Path(MODEL_DIR, self.model_name))
-		self.model_data[DataKey.class_num] = len(class_names)
-		self.model_data[DataKey.class_indices] = train_ds.class_names
+		self.model_data[DataKey.class_num] = len(train_ds.class_indices)
+		self.model_data[DataKey.class_indices] = train_ds.class_indices
 
 		for k, v in history.history.items():
 			if k in self.model_data:
@@ -248,6 +235,7 @@ class ImageClassificationAi():
 		random.seed(0)
 		images = image_manager.get_image_path_from_dir(dataset_path)
 		for row in range(loop_num):
+			class_name_list = list(self.model_data[DataKey.class_indices].keys())
 			fig = plt.figure(figsize=(19, 10))
 			for i in range(0, 12*2, 2):
 				image_path = random.choice(images)
@@ -257,7 +245,7 @@ class ImageClassificationAi():
 				ax.imshow(np.asarray(img))
 				ax = fig.add_subplot(3, 8, i + 2)
 				color = "blue"
-				if pathlib.Path(image_path.parent).name != self.model_data[DataKey.class_indices][list(result).index(max(result))]:
+				if pathlib.Path(image_path.parent).name != class_name_list[list(result).index(max(result))]:
 					color = "red"
-				ax.bar(np.array(range(len(self.model_data[DataKey.class_indices]))), result, tick_label=self.model_data[DataKey.class_indices], color=color)
+				ax.bar(np.array(range(len(class_name_list))), result, tick_label=class_name_list, color=color)
 			plt.show()
