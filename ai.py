@@ -151,38 +151,30 @@ class ImageClassificationAi():
 				self.model_data[k] = v
 
 		lib.save_json(pathlib.Path(MODEL_DIR, self.model_name + ".json"), self.model_data)
-		self.show_history(separate=False)
+		self.show_history()
 		self.check_model_sample(dataset_path)
 		return self.model_data.copy()
 
 	# モデルの学習履歴をグラフで表示する
-	def show_history(self, separate = True):
-		if separate:
-			plt.plot(self.model_data[DataKey.accuracy])
-			plt.plot(self.model_data[DataKey.val_accuracy])
-			plt.title("Model accuracy")
-			plt.ylabel("Accuracy")
-			plt.xlabel("Epoch")
-			plt.legend(["Train", "Test"], loc="upper left")
-			plt.show()
+	def show_history(self):
+		fig = plt.figure(figsize=(6.4, 4.8 * 2))
+		fig.suptitle("Learning history")
+		ax = fig.add_subplot(2, 1, 1)
+		ax.plot(self.model_data[DataKey.accuracy])
+		ax.plot(self.model_data[DataKey.val_accuracy])
+		ax.set_title("Model accuracy")
+		ax.set_ylabel("Accuracy")
+		ax.set_xlabel("Epoch")
+		ax.legend(["Train", "Test"], loc="upper left")
 
-			plt.plot(self.model_data[DataKey.loss])
-			plt.plot(self.model_data[DataKey.val_loss])
-			plt.title("Model loss")
-			plt.ylabel("Loss")
-			plt.xlabel("Epoch")
-			plt.legend(["Train", "Test"], loc="upper left")
-			plt.show()
-		else:
-			plt.plot(self.model_data[DataKey.accuracy])
-			plt.plot(self.model_data[DataKey.val_accuracy])
-			plt.plot(self.model_data[DataKey.loss])
-			plt.plot(self.model_data[DataKey.val_loss])
-			plt.title("Model train history")
-			plt.ylabel("Accuracy & loss")
-			plt.xlabel("Epoch")
-			plt.legend(["Train accuracy", "Test accuracy", "Train loss", "Test loss"], loc="upper left")
-			plt.show()
+		ax = fig.add_subplot(2, 1, 2)
+		ax.plot(self.model_data[DataKey.loss])
+		ax.plot(self.model_data[DataKey.val_loss])
+		ax.set_title("Model loss")
+		ax.set_ylabel("Loss")
+		ax.set_xlabel("Epoch")
+		ax.legend(["Train", "Test"], loc="upper left")
+		plt.show()
 		return
 
 	# 学習済みのニューラルネットワークを読み込む
