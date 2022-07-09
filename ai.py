@@ -12,7 +12,7 @@ from PIL import Image
 
 import image_manager
 import lib
-import tf_time_callback
+import tf_callback
 
 MODEL_DIR = "./model"
 
@@ -152,8 +152,8 @@ class ImageClassificationAi():
 		params = {
 			# "rescale": 1./255,
 			"horizontal_flip": True,			# 左右を反転する
-			"rotation_range": 25,				# 度数法で最大変化時の角度を指定
-			"channel_shift_range": 20,			# 各画素値の値を加算・減算します。パラメータとしては変化の最大量を指定します。
+			"rotation_range": 20,				# 度数法で最大変化時の角度を指定
+			"channel_shift_range": 15,			# 各画素値の値を加算・減算します。パラメータとしては変化の最大量を指定します。
 			"height_shift_range": 0.03,			# 中心位置を相対的にずらす ( 元画像の高さ X 値 の範囲内で垂直方向にずらす )
 			"width_shift_range": 0.03,
 			"validation_split": 0.1,			# 全体に対するテストデータの割合
@@ -180,7 +180,7 @@ class ImageClassificationAi():
 			self.model_data[DataKey.model] = model_type			# モデル作成時のみモデルタイプを登録する
 			self.model = self.create_model(model_type, len(train_ds.class_indices))
 
-		timetaken = tf_time_callback.TimeCallback()
+		timetaken = tf_callback.TimeCallback()
 		history = self.model.fit(train_ds, validation_data=val_ds, epochs=epochs, callbacks=[timetaken])
 		self.model.save_weights(pathlib.Path(MODEL_DIR, self.model_name))
 		self.model_data[DataKey.version] = self.MODEL_DATA_VERSION
