@@ -41,6 +41,7 @@ class ImageClassificationAi():
 		self.img_width = 224
 		return
 
+	# モデルが定義されていなければ実行できない関数のデコレーター
 	def model_required(func):
 		def wrapper(self, *args, **kwargs):
 			if self.model is None:
@@ -56,54 +57,8 @@ class ImageClassificationAi():
 				return self.create_model_vgg16(num_classes)
 		return None
 
+	# vgg16から転移学習するためのmodelを作成する
 	def create_model_vgg16(self, num_classes):
-		# model = tf.keras.Sequential([
-		# 	tf.keras.layers.Rescaling(1./255),
-		# 	tf.keras.layers.Conv2D(32, 3, activation="relu"),
-		# 	tf.keras.layers.MaxPooling2D(),
-		# 	tf.keras.layers.Conv2D(32, 3, activation="relu"),
-		# 	tf.keras.layers.MaxPooling2D(),
-		# 	tf.keras.layers.Conv2D(32, 3, activation="relu"),
-		# 	tf.keras.layers.MaxPooling2D(),
-		# 	tf.keras.layers.Flatten(),
-		# 	tf.keras.layers.Dense(128, activation="relu"),
-		# 	tf.keras.layers.Dense(num_classes)
-		# ])
-		# vgg16_model = tf.keras.applications.vgg16.VGG16(include_top=False)
-
-		# model = tf.keras.Sequential([
-		# 	*vgg16_model.layers,
-		# 	tf.keras.layers.Flatten(input_shape=vgg16_model.output_shape[1:]),
-		# 	tf.keras.layers.Dense(256, activation="relu"),
-		# 	tf.keras.layers.Dropout(0.5),
-		# 	tf.keras.layers.Dense(num_classes, activation="softmax"),
-		# ])
-
-		# model.compile(
-		# 	optimizer="adam",
-		# 	loss=tf.losses.SparseCategoricalCrossentropy(from_logits=True),
-		# 	metrics=["accuracy"])
-
-
-
-		# # `include_top=False`として既存モデルの出力層を消す。
-		# vgg16 = tf.keras.applications.vgg16.VGG16(include_top=False, input_shape=(224, 224, 3))
-
-		# # モデルを編集する。
-		# model = tf.keras.Sequential(vgg16.layers)
-
-		# # 全19層のうち15層目までは再学習しないようにパラメータを固定する。
-		# for layer in model.layers[:15]:
-		# 	layer.trainable = False
-		# # 出力層の部分を追加
-		# model.add(tf.keras.layers.Flatten())
-		# model.add(tf.keras.layers.Dense(256, activation="relu"))
-		# model.add(tf.keras.layers.Dropout(0.5))
-		# model.add(tf.keras.layers.Dense(num_classes, activation="softmax"))
-
-
-
-			# `include_top=False`として既存モデルの出力層を消す。
 		vgg16 = tf.keras.applications.vgg16.VGG16(include_top=False, input_shape=(self.img_height, self.img_width, 3))
 
 		top_model =  tf.keras.Sequential()
@@ -139,18 +94,9 @@ class ImageClassificationAi():
 		x = np.array(x)
 		return x
 
-		# img_raw = tf.io.read_file(str(img_path))
-		# image = tf.image.decode_image(img_raw, channels=3)
-		# image = tf.image.resize(image, [img_height, img_width])
-		# image /= 255.0							# normalize to [0,1] range
-		# image = tf.expand_dims(image, 0)		# 次元を一つ増やしてバッチ化する
-		# return image
-
-	def train_model(self, dataset_path, epochs: int = 6, model_type: ModelType = ModelType.unknown):
-		batch_size = 32
-		
+	# データセットの前処理を行うジェネレーターを作成する
+	def create_generator(self, normalize = False):
 		params = {
-			# "rescale": 1./255,
 			"horizontal_flip": True,			# 左右を反転する
 			"rotation_range": 20,				# 度数法で最大変化時の角度を指定
 			"channel_shift_range": 15,			# 各画素値の値を加算・減算します。パラメータとしては変化の最大量を指定します。
@@ -158,7 +104,13 @@ class ImageClassificationAi():
 			"width_shift_range": 0.03,
 			"validation_split": 0.1,			# 全体に対するテストデータの割合
 		}
-		generator = tf.keras.preprocessing.image.ImageDataGenerator(**params)
+		if normalize:
+			params["rescale"] = 1. / 255
+		return tf.keras.preprocessing.image.ImageDataGenerator(**params)
+
+	# 訓練用のデータセットを生成する
+	def create_dataset(self, dataset_path, batch_size):
+		generator = self.create_generator()
 		train_ds = generator.flow_from_directory(
 			dataset_path,
 			target_size = (self.img_height, self.img_width),
@@ -171,6 +123,11 @@ class ImageClassificationAi():
 			batch_size = batch_size,
 			class_mode="categorical",
 			subset = "validation")
+		return train_ds, val_ds
+
+	# ディープラーニングを開始する
+	def train_model(self, dataset_path: str, epochs: int = 6, model_type: ModelType = ModelType.unknown) -> dict:
+		train_ds, val_ds = self.create_dataset(dataset_path, 32)
 
 		if self.model is None:
 			if model_type == ModelType.unknown:
@@ -194,9 +151,9 @@ class ImageClassificationAi():
 				self.model_data[k] = v
 
 		lib.save_json(pathlib.Path(MODEL_DIR, self.model_name + ".json"), self.model_data)
-		self.show_history()
+		self.show_history(separate=False)
 		self.check_model_sample(dataset_path)
-		return
+		return self.model_data.copy()
 
 	# モデルの学習履歴をグラフで表示する
 	def show_history(self, separate = True):
@@ -228,6 +185,7 @@ class ImageClassificationAi():
 			plt.show()
 		return
 
+	# 学習済みのニューラルネットワークを読み込む
 	def load_model(self):
 		if self.model is None:
 			self.model_data = lib.load_json(pathlib.Path(MODEL_DIR, self.model_name + ".json"))
@@ -237,6 +195,7 @@ class ImageClassificationAi():
 			lib.print_error_log("既に初期化されています")
 		return
 
+	# ランダムな画像でモデルの推論結果を表示する
 	@model_required
 	def check_model_sample(self, dataset_path, loop_num = 5):
 		random.seed(0)
@@ -256,3 +215,4 @@ class ImageClassificationAi():
 					color = "red"
 				ax.bar(np.array(range(len(class_name_list))), result, tick_label=class_name_list, color=color)
 			plt.show()
+		return
