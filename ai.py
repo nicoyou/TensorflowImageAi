@@ -1,6 +1,9 @@
 import enum
+import os
 import pathlib
 import random
+
+os.environ['PATH'] += ";" + str(pathlib.Path(pathlib.Path(__file__).parent, "dll"))			# 環境変数に一時的に dll のパスを追加する
 
 import matplotlib.pyplot as plt
 import numpy as np
