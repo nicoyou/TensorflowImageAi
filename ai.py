@@ -25,13 +25,14 @@ class DataKey(str, enum.Enum):
 	model = "model"
 	class_num = "class_num"
 	class_indices = "class_indices"
+	train_image_num = "train_image_num"
 	accuracy = "accuracy"
 	val_accuracy = "val_accuracy"
 	loss = "loss"
 	val_loss = "val_loss"
 
 class ImageClassificationAi():
-	MODEL_DATA_VERSION = 2
+	MODEL_DATA_VERSION = 3
 
 	def __init__(self, model_name: str):
 		self.model = None
@@ -115,19 +116,34 @@ class ImageClassificationAi():
 			dataset_path,
 			target_size = (self.img_height, self.img_width),
 			batch_size = batch_size,
+			seed=54,
 			class_mode="categorical",
 			subset = "training")
 		val_ds = generator.flow_from_directory(
 			dataset_path,
 			target_size = (self.img_height, self.img_width),
 			batch_size = batch_size,
+			seed=54,
 			class_mode="categorical",
 			subset = "validation")
-		return train_ds, val_ds
+		return train_ds, val_ds		# [[[img*batch], [class*batch]], ...] の形式
 
 	# ディープラーニングを開始する
 	def train_model(self, dataset_path: str, epochs: int = 6, model_type: ModelType = ModelType.unknown) -> dict:
 		train_ds, val_ds = self.create_dataset(dataset_path, 32)
+
+		progbar = tf.keras.utils.Progbar(len(train_ds))
+		class_image_num = []
+		for i in range(len(train_ds.class_indices)):			# 各クラスの読み込み枚数を 0 で初期化して、カウント用のキーを生成する ( ３クラス中の１番目なら [1, 0, 0])
+			class_image_num.append([0, [1 if i == row else 0 for row in range(len(train_ds.class_indices))]])
+
+		for i, row in enumerate(train_ds):
+			for image_num in class_image_num:					# 各クラスのデータ数を計測する
+				image_num[0] += np.count_nonzero([np.all(x) for x in (row[1] == image_num[1])])		# numpyでキーが一致するものをカウントする
+			progbar.update(i + 1)
+			if i == len(train_ds) - 1:							# 無限にループするため、最後まで取得したら終了する
+				break
+		class_image_num = [row for row, label in class_image_num]		# 不要になったラベルのキーを破棄する
 
 		if self.model is None:
 			if model_type == ModelType.unknown:
@@ -143,6 +159,7 @@ class ImageClassificationAi():
 		self.model_data[DataKey.version] = self.MODEL_DATA_VERSION
 		self.model_data[DataKey.class_num] = len(train_ds.class_indices)
 		self.model_data[DataKey.class_indices] = train_ds.class_indices
+		self.model_data[DataKey.train_image_num] = class_image_num
 
 		for k, v in history.history.items():
 			if k in self.model_data:
