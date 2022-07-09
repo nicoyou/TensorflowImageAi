@@ -8,11 +8,11 @@ os.environ['PATH'] += ";" + str(pathlib.Path(pathlib.Path(__file__).parent, "dll
 import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
-import keras
 from PIL import Image
 
 import image_manager
 import lib
+import tf_time_callback
 
 MODEL_DIR = "./model"
 
@@ -21,6 +21,7 @@ class ModelType(str, enum.Enum):
 	vgg16_512 = "vgg16_512"
 
 class DataKey(str, enum.Enum):
+	version = "version"
 	model = "model"
 	class_num = "class_num"
 	class_indices = "class_indices"
@@ -30,6 +31,8 @@ class DataKey(str, enum.Enum):
 	val_loss = "val_loss"
 
 class ImageClassificationAi():
+	MODEL_DATA_VERSION = 2
+
 	def __init__(self, model_name: str):
 		self.model = None
 		self.model_data = None
@@ -155,7 +158,7 @@ class ImageClassificationAi():
 			"width_shift_range": 0.03,
 			"validation_split": 0.1,			# 全体に対するテストデータの割合
 		}
-		generator = keras.preprocessing.image.ImageDataGenerator(**params)
+		generator = tf.keras.preprocessing.image.ImageDataGenerator(**params)
 		train_ds = generator.flow_from_directory(
 			dataset_path,
 			target_size = (self.img_height, self.img_width),
@@ -174,12 +177,13 @@ class ImageClassificationAi():
 				lib.print_error_log("モデルを新規作成する場合はモデルタイプを指定してください")
 				return None
 			self.model_data = {}
-			self.model_data[DataKey.model] = model_type			# モデル作成時のみモデルタイプを上書きする
+			self.model_data[DataKey.model] = model_type			# モデル作成時のみモデルタイプを登録する
 			self.model = self.create_model(model_type, len(train_ds.class_indices))
 
-
-		history = self.model.fit(train_ds, validation_data=val_ds, epochs=epochs)
+		timetaken = tf_time_callback.TimeCallback()
+		history = self.model.fit(train_ds, validation_data=val_ds, epochs=epochs, callbacks=[timetaken])
 		self.model.save_weights(pathlib.Path(MODEL_DIR, self.model_name))
+		self.model_data[DataKey.version] = self.MODEL_DATA_VERSION
 		self.model_data[DataKey.class_num] = len(train_ds.class_indices)
 		self.model_data[DataKey.class_indices] = train_ds.class_indices
 
