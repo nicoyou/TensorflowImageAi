@@ -7,6 +7,7 @@ os.environ['PATH'] += ";" + str(pathlib.Path(pathlib.Path(__file__).parent, "dll
 
 import matplotlib.pyplot as plt
 import numpy as np
+import resnet_rs
 import tensorflow as tf
 from PIL import Image
 
@@ -19,6 +20,7 @@ MODEL_DIR = "./model"
 class ModelType(str, enum.Enum):
 	unknown = "unknown"
 	vgg16_512 = "vgg16_512"
+	resnet_rs152_512x2 = "resnet_rs152_512x2"
 
 class DataKey(str, enum.Enum):
 	version = "version"
@@ -56,7 +58,35 @@ class ImageClassificationAi():
 		match model_type:
 			case ModelType.vgg16_512:
 				return self.create_model_vgg16(num_classes)
+			case ModelType.resnet_rs152_512x2:
+				return self.create_model_resnet_rs(num_classes)
 		return None
+
+	# ResNet_RSモデルを作成する
+	def create_model_resnet_rs(self, num_classes):
+		resnet = resnet_rs.ResNetRS152(include_top=False, input_shape=(self.img_height, self.img_width, 3), weights="imagenet-i224")
+
+		top_model = tf.keras.Sequential()
+		top_model.add(tf.keras.layers.Flatten(input_shape=resnet.output_shape[1:]))
+		top_model.add(tf.keras.layers.Dense(512, activation="relu"))
+		top_model.add(tf.keras.layers.Dense(512, activation="relu"))
+		top_model.add(tf.keras.layers.Dropout(0.25))
+		top_model.add(tf.keras.layers.Dense(num_classes, activation="softmax"))
+
+		model = tf.keras.models.Model(
+			inputs=resnet.input,
+			outputs=top_model(resnet.output)
+		)
+
+		for layer in model.layers[:762]:
+			layer.trainable = False
+
+		model.compile(
+			loss="categorical_crossentropy",
+			optimizer=tf.keras.optimizers.Adam(learning_rate=0.0002),
+			metrics=["accuracy"]
+		)
+		return model
 
 	# vgg16から転移学習するためのmodelを作成する
 	def create_model_vgg16(self, num_classes):
@@ -75,7 +105,7 @@ class ImageClassificationAi():
 
 		for layer in model.layers[:15]:
 			layer.trainable = False
-		model.summary()
+
 		# 最適化アルゴリズムをSGD（確率的勾配降下法）とし最適化の学習率と修正幅を指定してコンパイルする。
 		model.compile(
 			loss="categorical_crossentropy",
@@ -85,18 +115,25 @@ class ImageClassificationAi():
 		return model
 
 	# 画像を読み込んでテンソルに変換する
-	def preprocess_image(self, img_path):
-		image = Image.open(img_path)
-		image = image.convert("RGB")
-		image = image.resize((self.img_height, self.img_width))
-		data = np.asarray(image)
-		x = []
-		x.append(data)
-		x = np.array(x)
-		return x
+	def preprocess_image(self, img_path, normalize = False):
+		img_raw = tf.io.read_file(str(img_path))
+		image = tf.image.decode_image(img_raw, channels=3)
+		image = tf.image.resize(image, (self.img_height, self.img_width))
+		if normalize:
+			image /= 255.0						# normalize to [0,1] range
+		image = tf.expand_dims(image, 0)		# 次元を一つ増やしてバッチ化する
+		return image
+
+	# ノーマライズが必要かどうかを取得する
+	def get_normalize_flag(self, model_type: ModelType = ModelType.unknown) -> bool:
+		normalize = True
+		no_normalize_model = [ModelType.vgg16_512]
+		if (self.model_data is not None and self.model_data[DataKey.model] in no_normalize_model) or model_type in no_normalize_model:
+			normalize = False
+		return normalize
 
 	# データセットの前処理を行うジェネレーターを作成する
-	def create_generator(self, normalize = False):
+	def create_generator(self, normalize):
 		params = {
 			"horizontal_flip": True,			# 左右を反転する
 			"rotation_range": 20,				# 度数法で最大変化時の角度を指定
@@ -110,8 +147,8 @@ class ImageClassificationAi():
 		return tf.keras.preprocessing.image.ImageDataGenerator(**params)
 
 	# 訓練用のデータセットを生成する
-	def create_dataset(self, dataset_path, batch_size):
-		generator = self.create_generator()
+	def create_dataset(self, dataset_path, batch_size, normalize = False):
+		generator = self.create_generator(normalize)
 		train_ds = generator.flow_from_directory(
 			dataset_path,
 			target_size = (self.img_height, self.img_width),
@@ -130,7 +167,7 @@ class ImageClassificationAi():
 
 	# ディープラーニングを開始する
 	def train_model(self, dataset_path: str, epochs: int = 6, model_type: ModelType = ModelType.unknown) -> dict:
-		train_ds, val_ds = self.create_dataset(dataset_path, 32)
+		train_ds, val_ds = self.create_dataset(dataset_path, 32, normalize=self.get_normalize_flag(model_type))
 
 		progbar = tf.keras.utils.Progbar(len(train_ds))
 		class_image_num = []
@@ -144,6 +181,7 @@ class ImageClassificationAi():
 			if i == len(train_ds) - 1:							# 無限にループするため、最後まで取得したら終了する
 				break
 		class_image_num = [row for row, label in class_image_num]		# 不要になったラベルのキーを破棄する
+		train_ds.reset()
 
 		if self.model is None:
 			if model_type == ModelType.unknown:
@@ -215,7 +253,7 @@ class ImageClassificationAi():
 			for i in range(0, 12*2, 2):
 				image_path = random.choice(images)
 				img = Image.open(image_path)
-				result = self.model(self.preprocess_image(image_path))[0]
+				result = self.model(self.preprocess_image(image_path, self.get_normalize_flag()))[0]
 				ax = fig.add_subplot(3, 8, i + 1)
 				ax.imshow(np.asarray(img))
 				ax = fig.add_subplot(3, 8, i + 2)
