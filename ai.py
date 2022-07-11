@@ -166,8 +166,8 @@ class ImageClassificationAi():
 		return train_ds, val_ds		# [[[img*batch], [class*batch]], ...] の形式
 
 	# ディープラーニングを開始する
-	def train_model(self, dataset_path: str, epochs: int = 6, model_type: ModelType = ModelType.unknown) -> dict:
-		train_ds, val_ds = self.create_dataset(dataset_path, 32, normalize=self.get_normalize_flag(model_type))
+	def train_model(self, dataset_path: str, epochs: int = 6, batch_size: int = 32, model_type: ModelType = ModelType.unknown) -> dict:
+		train_ds, val_ds = self.create_dataset(dataset_path, batch_size, normalize=self.get_normalize_flag(model_type))
 
 		progbar = tf.keras.utils.Progbar(len(train_ds))
 		class_image_num = []
@@ -207,7 +207,7 @@ class ImageClassificationAi():
 
 		lib.save_json(pathlib.Path(MODEL_DIR, self.model_name + ".json"), self.model_data)
 		self.show_history()
-		self.check_model_sample(dataset_path)
+		self.show_model_sample(dataset_path)
 		return self.model_data.copy()
 
 	# モデルの学習履歴をグラフで表示する
@@ -244,7 +244,7 @@ class ImageClassificationAi():
 
 	# ランダムな画像でモデルの推論結果を表示する
 	@model_required
-	def check_model_sample(self, dataset_path, loop_num = 5):
+	def show_model_sample(self, dataset_path, loop_num = 5):
 		random.seed(0)
 		images = image_manager.get_image_path_from_dir(dataset_path)
 		for row in range(loop_num):
