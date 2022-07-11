@@ -3,7 +3,7 @@ import os
 import pathlib
 import random
 
-os.environ['PATH'] += ";" + str(pathlib.Path(pathlib.Path(__file__).parent, "dll"))			# 環境変数に一時的に dll のパスを追加する
+os.environ["PATH"] += ";" + str(pathlib.Path(pathlib.Path(__file__).parent, "dll"))			# 環境変数に一時的に dll のパスを追加する
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -15,6 +15,7 @@ import image_manager
 import lib
 import tf_callback
 
+__version__ = "1.0.0"
 MODEL_DIR = "./model"
 
 class ModelType(str, enum.Enum):
