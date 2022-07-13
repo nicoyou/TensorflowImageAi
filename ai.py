@@ -251,16 +251,38 @@ class ImageClassificationAi():
 		for row in range(loop_num):
 			class_name_list = list(self.model_data[DataKey.class_indices].keys())
 			fig = plt.figure(figsize=(19, 10))
-			for i in range(0, 12*2, 2):
+			for i in range(12):
 				image_path = random.choice(images)
 				img = Image.open(image_path)
 				result = self.model(self.preprocess_image(image_path, self.get_normalize_flag()))[0]
-				ax = fig.add_subplot(3, 8, i + 1)
+				ax = fig.add_subplot(3, 8, i * 2 + 1)
 				ax.imshow(np.asarray(img))
-				ax = fig.add_subplot(3, 8, i + 2)
+				ax = fig.add_subplot(3, 8, i * 2 + 2)
 				color = "blue"
 				if pathlib.Path(image_path.parent).name != class_name_list[list(result).index(max(result))]:
 					color = "red"
 				ax.bar(np.array(range(len(class_name_list))), result, tick_label=class_name_list, color=color)
 			plt.show()
+		return
+
+	# テストデータの推論結果を表示する
+	@model_required
+	def show_model_test(self, dataset_path, max_loop_num = 0):
+		train_ds, val_ds = self.create_dataset(dataset_path, 12, normalize=self.get_normalize_flag())
+
+		for i, row in enumerate(val_ds):
+			class_name_list = list(self.model_data[DataKey.class_indices].keys())
+			fig = plt.figure(figsize=(16, 9))
+			for j in range(12):
+				result = self.model(tf.expand_dims(row[0][j], 0))[0]
+				ax = fig.add_subplot(3, 8, j * 2 + 1)
+				ax.imshow(row[0][j])
+				ax = fig.add_subplot(3, 8, j * 2 + 2)
+				color = "blue"
+				if list(row[1][j]).index(1) != list(result).index(max(result)):
+					color = "red"
+				ax.bar(np.array(range(len(class_name_list))), result, tick_label=class_name_list, color=color)
+			plt.show()
+			if i == len(val_ds) - 1 or i == max_loop_num - 1:
+				break
 		return
