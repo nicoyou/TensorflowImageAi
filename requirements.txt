@@ -6,6 +6,8 @@ pillow
 absl-py
 tensorflow
 matplotlib
+nlib3
+pandas
 # Data preprocessing relations
 scipy
 # ResNet-RS trained model
