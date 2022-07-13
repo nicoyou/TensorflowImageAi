@@ -6,13 +6,13 @@ import random
 os.environ["PATH"] += ";" + str(pathlib.Path(pathlib.Path(__file__).parent, "dll"))			# 環境変数に一時的に dll のパスを追加する
 
 import matplotlib.pyplot as plt
+import nlib3
 import numpy as np
 import resnet_rs
 import tensorflow as tf
 from PIL import Image
 
 import image_manager
-import lib
 import tf_callback
 
 __version__ = "1.0.0"
@@ -49,7 +49,7 @@ class ImageClassificationAi():
 	def model_required(func):
 		def wrapper(self, *args, **kwargs):
 			if self.model is None:
-				lib.print_error_log("モデルが初期化されていません")
+				nlib3.print_error_log("モデルが初期化されていません")
 				return None
 			return func(self, *args, **kwargs)
 		return wrapper
@@ -186,7 +186,7 @@ class ImageClassificationAi():
 
 		if self.model is None:
 			if model_type == ModelType.unknown:
-				lib.print_error_log("モデルを新規作成する場合はモデルタイプを指定してください")
+				nlib3.print_error_log("モデルを新規作成する場合はモデルタイプを指定してください")
 				return None
 			self.model_data = {}
 			self.model_data[DataKey.model] = model_type			# モデル作成時のみモデルタイプを登録する
@@ -206,7 +206,7 @@ class ImageClassificationAi():
 			else:
 				self.model_data[k] = v
 
-		lib.save_json(pathlib.Path(MODEL_DIR, self.model_name + ".json"), self.model_data)
+		nlib3.save_json(pathlib.Path(MODEL_DIR, self.model_name + ".json"), self.model_data)
 		self.show_history()
 		self.show_model_sample(dataset_path)
 		return self.model_data.copy()
@@ -236,11 +236,11 @@ class ImageClassificationAi():
 	# 学習済みのニューラルネットワークを読み込む
 	def load_model(self):
 		if self.model is None:
-			self.model_data = lib.load_json(pathlib.Path(MODEL_DIR, self.model_name + ".json"))
+			self.model_data = nlib3.load_json(pathlib.Path(MODEL_DIR, self.model_name + ".json"))
 			self.model = self.create_model(self.model_data[DataKey.model], self.model_data[DataKey.class_num])
 			self.model.load_weights(pathlib.Path(MODEL_DIR, self.model_name))
 		else:
-			lib.print_error_log("既に初期化されています")
+			nlib3.print_error_log("既に初期化されています")
 		return
 
 	# ランダムな画像でモデルの推論結果を表示する
