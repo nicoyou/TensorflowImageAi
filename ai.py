@@ -2,7 +2,6 @@ import abc
 import enum
 import os
 import pathlib
-import random
 
 os.environ["PATH"] += ";" + str(pathlib.Path(pathlib.Path(__file__).parent, "dll"))			# 環境変数に一時的に dll のパスを追加する
 
@@ -11,9 +10,7 @@ import nlib3
 import numpy as np
 import resnet_rs
 import tensorflow as tf
-from PIL import Image
 
-import image_manager
 import tf_callback
 
 __version__ = "1.0.0"
@@ -27,6 +24,7 @@ class ModelType(str, enum.Enum):
 class DataKey(str, enum.Enum):
 	version = "version"
 	model = "model"
+	ai_type = "ai_type"
 	class_num = "class_num"
 	class_indices = "class_indices"
 	train_image_num = "train_image_num"
@@ -34,6 +32,9 @@ class DataKey(str, enum.Enum):
 	val_accuracy = "val_accuracy"
 	loss = "loss"
 	val_loss = "val_loss"
+
+class AiType(str, enum.Enum):
+	categorical = "categorical"
 
 # モデルが定義されていなければ実行できない関数のデコレーター
 def model_required(func):
@@ -45,13 +46,13 @@ def model_required(func):
 	return wrapper
 
 class Ai(metaclass = abc.ABCMeta):
-	MODEL_DATA_VERSION = 3
+	MODEL_DATA_VERSION = 4
 
-	def __init__(self, dataset_class_mode: str, model_name: str):
+	def __init__(self, ai_type: AiType, model_name: str):
 		self.model = None
 		self.model_data = None
 		self.model_name = model_name
-		self.dataset_class_mode = dataset_class_mode
+		self.ai_type = ai_type
 		self.img_height = 224
 		self.img_width = 224
 		return
@@ -89,23 +90,9 @@ class Ai(metaclass = abc.ABCMeta):
 		return tf.keras.preprocessing.image.ImageDataGenerator(**params)
 
 	# 訓練用のデータセットを生成する
+	@abc.abstractmethod
 	def create_dataset(self, dataset_path, batch_size, normalize = False):
-		generator = self.create_generator(normalize)
-		train_ds = generator.flow_from_directory(
-			dataset_path,
-			target_size = (self.img_height, self.img_width),
-			batch_size = batch_size,
-			seed=54,
-			class_mode=self.dataset_class_mode,
-			subset = "training")
-		val_ds = generator.flow_from_directory(
-			dataset_path,
-			target_size = (self.img_height, self.img_width),
-			batch_size = batch_size,
-			seed=54,
-			class_mode=self.dataset_class_mode,
-			subset = "validation")
-		return train_ds, val_ds		# [[[img*batch], [class*batch]], ...] の形式
+		pass
 
 	# 画像分類モデルを作成する
 	@abc.abstractmethod
@@ -135,6 +122,7 @@ class Ai(metaclass = abc.ABCMeta):
 		history = self.model.fit(train_ds, validation_data=val_ds, epochs=epochs, callbacks=[timetaken])
 		self.model.save_weights(pathlib.Path(MODEL_DIR, self.model_name))
 		self.model_data[DataKey.version] = self.MODEL_DATA_VERSION
+		self.model_data[DataKey.ai_type] = self.ai_type
 		self.model_data[DataKey.class_num] = len(train_ds.class_indices)
 		self.model_data[DataKey.class_indices] = train_ds.class_indices
 		self.model_data[DataKey.train_image_num] = class_image_num
@@ -185,7 +173,7 @@ class Ai(metaclass = abc.ABCMeta):
 	# ランダムな画像でモデルの推論結果を表示する
 	@abc.abstractmethod
 	@model_required
-	def show_model_sample(self, dataset_path, loop_num = 5):
+	def inference(self, img_path):
 		pass
 
 	# テストデータの推論結果を表示する
@@ -197,7 +185,7 @@ class Ai(metaclass = abc.ABCMeta):
 
 class ImageClassificationAi(Ai):
 	def __init__(self, *args, **kwargs):
-		super().__init__("categorical", *args, **kwargs)
+		super().__init__(AiType.categorical, *args, **kwargs)
 		return
 
 	# 画像分類モデルを作成する
@@ -261,6 +249,25 @@ class ImageClassificationAi(Ai):
 		)
 		return model
 
+	# 訓練用のデータセットを生成する
+	def create_dataset(self, dataset_path, batch_size, normalize = False):
+		generator = self.create_generator(normalize)
+		train_ds = generator.flow_from_directory(
+			dataset_path,
+			target_size = (self.img_height, self.img_width),
+			batch_size = batch_size,
+			seed=54,
+			class_mode="categorical",
+			subset = "training")
+		val_ds = generator.flow_from_directory(
+			dataset_path,
+			target_size = (self.img_height, self.img_width),
+			batch_size = batch_size,
+			seed=54,
+			class_mode="categorical",
+			subset = "validation")
+		return train_ds, val_ds		# [[[img*batch], [class*batch]], ...] の形式
+		
 	# データセットに含まれるクラスごとの画像の数を取得する
 	def count_image_from_dataset(self, dataset):
 		progbar = tf.keras.utils.Progbar(len(dataset))
@@ -280,32 +287,18 @@ class ImageClassificationAi(Ai):
 
 	# ランダムな画像でモデルの推論結果を表示する
 	@model_required
-	def show_model_sample(self, dataset_path, loop_num = 5):
-		random.seed(0)
-		images = image_manager.get_image_path_from_dir(dataset_path)
-		for row in range(loop_num):
-			class_name_list = list(self.model_data[DataKey.class_indices].keys())
-			fig = plt.figure(figsize=(19, 10))
-			for i in range(12):
-				image_path = random.choice(images)
-				img = Image.open(image_path)
-				result = self.model(self.preprocess_image(image_path, self.get_normalize_flag()))[0]
-				ax = fig.add_subplot(3, 8, i * 2 + 1)
-				ax.imshow(np.asarray(img))
-				ax = fig.add_subplot(3, 8, i * 2 + 2)
-				color = "blue"
-				if pathlib.Path(image_path.parent).name != class_name_list[list(result).index(max(result))]:
-					color = "red"
-				ax.bar(np.array(range(len(class_name_list))), result, tick_label=class_name_list, color=color)
-			plt.show()
-		return
+	def inference(self, img_path):
+		result = self.model(self.preprocess_image(img_path, self.get_normalize_flag()))
+		return [float(row) for row in result[0]]
 
 	# テストデータの推論結果を表示する
 	@model_required
-	def show_model_test(self, dataset_path, max_loop_num = 0):
-		train_ds, val_ds = self.create_dataset(dataset_path, 12, normalize=self.get_normalize_flag())
+	def show_model_test(self, dataset_path, max_loop_num = 0, use_val_ds = True):
+		train_ds, test_ds = self.create_dataset(dataset_path, 12, normalize=self.get_normalize_flag())
+		if not use_val_ds:
+			test_ds = train_ds
 
-		for i, row in enumerate(val_ds):
+		for i, row in enumerate(test_ds):
 			class_name_list = list(self.model_data[DataKey.class_indices].keys())
 			fig = plt.figure(figsize=(16, 9))
 			for j in range(len(row[0])):			# 最大12の画像数
@@ -318,6 +311,6 @@ class ImageClassificationAi(Ai):
 					color = "red"
 				ax.bar(np.array(range(len(class_name_list))), result, tick_label=class_name_list, color=color)
 			plt.show()
-			if i == len(val_ds) - 1 or i == max_loop_num - 1:
+			if i == len(test_ds) - 1 or i == max_loop_num - 1:
 				break
 		return
