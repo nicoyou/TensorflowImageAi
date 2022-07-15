@@ -285,11 +285,17 @@ class ImageClassificationAi(Ai):
 		dataset.reset()
 		return class_image_num
 
-	# ランダムな画像でモデルの推論結果を表示する
+	# 指定された画像の推論結果を取得する
 	@model_required
 	def inference(self, img_path):
 		result = self.model(self.preprocess_image(img_path, self.get_normalize_flag()))
 		return [float(row) for row in result[0]]
+
+	# モデルから返された結果を分類のクラス名に変換する
+	@model_required
+	def result_to_classname(self, result):
+		class_name_list = list(self.model_data[DataKey.class_indices].keys())
+		return class_name_list[list(result).index(max(result))]
 
 	# テストデータの推論結果を表示する
 	@model_required
@@ -314,3 +320,24 @@ class ImageClassificationAi(Ai):
 			if i == len(test_ds) - 1 or i == max_loop_num - 1:
 				break
 		return
+
+	# テストデータで分類に失敗したデータリストを取得する
+	@model_required
+	def get_model_miss_list(self, dataset_path, use_val_ds = True, print_result = False):
+		train_ds, test_ds = self.create_dataset(dataset_path, 8, normalize=self.get_normalize_flag())
+		result_list = []
+		if not use_val_ds:
+			test_ds = train_ds
+
+		for i, row in enumerate(test_ds):
+			for j in range(len(row[0])):			# 最大12の画像数
+				result = self.model(tf.expand_dims(row[0][j], 0))[0]
+				if list(row[1][j]).index(1) != list(result).index(max(result)):
+					result_list.append(result, row[1][j])
+					if print_result:
+						result_class = self.result_to_classname(result)
+						true_class = self.result_to_classname(row[1][j])
+						print(f"{result_class} -> {true_class}")
+			if i == len(test_ds) - 1:
+				break
+		return result_list
