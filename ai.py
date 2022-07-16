@@ -8,6 +8,7 @@ os.environ["PATH"] += ";" + str(pathlib.Path(pathlib.Path(__file__).parent, "dll
 import matplotlib.pyplot as plt
 import nlib3
 import numpy as np
+import pandas
 import resnet_rs
 import tensorflow as tf
 
@@ -15,11 +16,13 @@ import tf_callback
 
 __version__ = "1.0.0"
 MODEL_DIR = "./model"
+RANDOM_SEED = 54
 
 class ModelType(str, enum.Enum):
 	unknown = "unknown"
 	vgg16_512 = "vgg16_512"
 	resnet_rs152_512x2 = "resnet_rs152_512x2"
+	resnet_rs152_512x2_regr = "resnet_rs152_512x2_regr"
 
 class DataKey(str, enum.Enum):
 	version = "version"
@@ -35,6 +38,7 @@ class DataKey(str, enum.Enum):
 
 class AiType(str, enum.Enum):
 	categorical = "categorical"
+	regression = "regression"
 
 # モデルが定義されていなければ実行できない関数のデコレーター
 def model_required(func):
@@ -76,7 +80,7 @@ class Ai(metaclass = abc.ABCMeta):
 		return normalize
 
 	# データセットの前処理を行うジェネレーターを作成する
-	def create_generator(self, normalize):
+	def create_generator(self, normalize: bool):
 		params = {
 			"horizontal_flip": True,			# 左右を反転する
 			"rotation_range": 20,				# 度数法で最大変化時の角度を指定
@@ -96,7 +100,7 @@ class Ai(metaclass = abc.ABCMeta):
 
 	# 画像分類モデルを作成する
 	@abc.abstractmethod
-	def create_model(self, model_type: ModelType, num_classes: int):
+	def create_model():
 		pass
 
 	# データセットに含まれるクラスごとの画像の数を取得する
@@ -108,7 +112,7 @@ class Ai(metaclass = abc.ABCMeta):
 	def train_model(self, dataset_path: str, epochs: int = 6, batch_size: int = 32, model_type: ModelType = ModelType.unknown) -> dict:
 		train_ds, val_ds = self.create_dataset(dataset_path, batch_size, normalize=self.get_normalize_flag(model_type))
 
-		class_image_num = self.count_image_from_dataset(train_ds)
+		class_image_num, class_indices = self.count_image_from_dataset(train_ds)
 
 		if self.model is None:
 			if model_type == ModelType.unknown:
@@ -116,15 +120,15 @@ class Ai(metaclass = abc.ABCMeta):
 				return None
 			self.model_data = {}
 			self.model_data[DataKey.model] = model_type			# モデル作成時のみモデルタイプを登録する
-			self.model = self.create_model(model_type, len(train_ds.class_indices))
+			self.model = self.create_model(model_type, len(class_indices))
 
 		timetaken = tf_callback.TimeCallback()
 		history = self.model.fit(train_ds, validation_data=val_ds, epochs=epochs, callbacks=[timetaken])
 		self.model.save_weights(pathlib.Path(MODEL_DIR, self.model_name))
 		self.model_data[DataKey.version] = self.MODEL_DATA_VERSION
 		self.model_data[DataKey.ai_type] = self.ai_type
-		self.model_data[DataKey.class_num] = len(train_ds.class_indices)
-		self.model_data[DataKey.class_indices] = train_ds.class_indices
+		self.model_data[DataKey.class_num] = len(class_indices)
+		self.model_data[DataKey.class_indices] = class_indices
 		self.model_data[DataKey.train_image_num] = class_image_num
 
 		for k, v in history.history.items():
@@ -179,7 +183,7 @@ class Ai(metaclass = abc.ABCMeta):
 	# テストデータの推論結果を表示する
 	@abc.abstractmethod
 	@model_required
-	def show_model_test(self, dataset_path, max_loop_num = 0):
+	def show_model_test(self, dataset_path, max_loop_num = 0, use_val_ds = True):
 		pass
 
 
@@ -256,14 +260,14 @@ class ImageClassificationAi(Ai):
 			dataset_path,
 			target_size = (self.img_height, self.img_width),
 			batch_size = batch_size,
-			seed=54,
+			seed=RANDOM_SEED,
 			class_mode="categorical",
 			subset = "training")
 		val_ds = generator.flow_from_directory(
 			dataset_path,
 			target_size = (self.img_height, self.img_width),
 			batch_size = batch_size,
-			seed=54,
+			seed=RANDOM_SEED,
 			class_mode="categorical",
 			subset = "validation")
 		return train_ds, val_ds		# [[[img*batch], [class*batch]], ...] の形式
@@ -283,7 +287,7 @@ class ImageClassificationAi(Ai):
 				break
 		class_image_num = [row for row, label in class_image_num]		# 不要になったラベルのキーを破棄する
 		dataset.reset()
-		return class_image_num
+		return class_image_num, dataset.class_indices
 
 	# 指定された画像の推論結果を取得する
 	@model_required
@@ -341,3 +345,112 @@ class ImageClassificationAi(Ai):
 			if i == len(test_ds) - 1:
 				break
 		return result_list
+
+class ImageRegressionAi(Ai):
+	def __init__(self, *args, **kwargs):
+		super().__init__(AiType.regression, *args, **kwargs)
+		return
+
+	# 画像分類モデルを作成する
+	def create_model(self, model_type: ModelType, num_classes: int):
+		match model_type:
+			case ModelType.resnet_rs152_512x2_regr:
+				return self.create_model_resnet_rs_regr()
+		return None
+
+	# ResNet_RSモデルを作成する
+	def create_model_resnet_rs_regr(self):
+		resnet = resnet_rs.ResNetRS152(include_top=False, input_shape=(self.img_height, self.img_width, 3), weights="imagenet-i224")
+
+		top_model = tf.keras.Sequential()
+		top_model.add(tf.keras.layers.Flatten(input_shape=resnet.output_shape[1:]))
+		top_model.add(tf.keras.layers.Dense(512, activation="relu"))
+		top_model.add(tf.keras.layers.Dense(512, activation="relu"))
+		top_model.add(tf.keras.layers.Dropout(0.25))
+		top_model.add(tf.keras.layers.Dense(1, activation="linear"))
+
+		model = tf.keras.models.Model(
+			inputs=resnet.input,
+			outputs=top_model(resnet.output)
+		)
+
+		for layer in model.layers[:762]:
+			layer.trainable = False
+
+		model.compile(
+			loss="mean_squared_error",
+			optimizer=tf.keras.optimizers.Adam(learning_rate=0.00001),
+			metrics=["accuracy"]
+		)
+		return model
+
+	# 訓練用のデータセットを生成する
+	def create_dataset(self, data_csv_path, batch_size, normalize = False):
+		generator = self.create_generator(normalize)
+		df = pandas.read_csv(data_csv_path)
+		train_ds = generator.flow_from_dataframe(
+			df,
+			target_size = (self.img_height, self.img_width),
+			batch_size = batch_size,
+			seed=RANDOM_SEED,
+			class_mode="raw",
+			subset = "training")
+		val_ds = generator.flow_from_dataframe(
+			df,
+			target_size = (self.img_height, self.img_width),
+			batch_size = batch_size,
+			seed=RANDOM_SEED,
+			class_mode="raw",
+			subset = "validation")
+		return train_ds, val_ds		# [[[img*batch], [class*batch]], ...] の形式
+
+	# データセットに含まれるクラスごとの画像の数を取得する
+	def count_image_from_dataset(self, dataset):
+		progbar = tf.keras.utils.Progbar(len(dataset))
+		image_num = {}
+			
+		for i, row in enumerate(dataset):
+			for value in row[1]:
+				if value in image_num:
+					image_num[value] += 1
+				else:
+					image_num[value] = 1
+				
+			progbar.update(i + 1)
+			if i == len(dataset) - 1:							# 無限にループするため、最後まで取得したら終了する
+				break
+		dataset.reset()
+		class_indices = {row: i for i, row in enumerate(list(image_num.keys()))}
+		return list(image_num.values()), class_indices
+
+	# 指定された画像の推論結果を取得する
+	@model_required
+	def inference(self, img_path):
+		result = self.model(self.preprocess_image(img_path, self.get_normalize_flag()))
+		return float(result[0])
+
+	# テストデータの推論結果を表示する
+	@model_required
+	def show_model_test(self, dataset_path, max_loop_num = 0, use_val_ds = True):
+		train_ds, test_ds = self.create_dataset(dataset_path, 12, normalize=self.get_normalize_flag())
+		if not use_val_ds:
+			test_ds = train_ds
+
+		for i, row in enumerate(test_ds):
+			fig = plt.figure(figsize=(16, 9))
+			for j in range(len(row[0])):			# 最大12の画像数
+				result = self.model(tf.expand_dims(row[0][j], 0))[0]
+				ax = fig.add_subplot(3, 8, j * 2 + 1)
+				ax.imshow(row[0][j])
+				ax = fig.add_subplot(3, 8, j * 2 + 2)
+				color = "blue"
+				if abs(row[1][j] - result[0]) > 0.17:
+					color = "orange"
+				if abs(row[1][j] - result[0]) > 0.35:
+					color = "red"
+				ax.bar([0, 1], [result[0], row[1][j]], tick_label=["ai", "answer"], color=color)
+				ax.set_ylim(0, 1.1)
+			plt.show()
+			if i == len(test_ds) - 1 or i == max_loop_num - 1:
+				break
+		return

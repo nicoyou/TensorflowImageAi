@@ -4,10 +4,8 @@ anime_face_detector/LICENSE
 
 # tensorflow GPUで使用するdll
 dll/
-# キャラクターのオリジナルデータセット
+# 学習用のデータセット
 dataset/
-# その他画像データ
-image/
 # モデルの学習結果
 model/
 # ログ
