@@ -93,20 +93,17 @@ class Ai(metaclass = abc.ABCMeta):
 			params["rescale"] = 1. / 255
 		return tf.keras.preprocessing.image.ImageDataGenerator(**params)
 
-	# 訓練用のデータセットを生成する
 	@abc.abstractmethod
-	def create_dataset(self, dataset_path, batch_size, normalize = False):
-		pass
+	def create_dataset():
+		"""訓練用とテスト用のデータセットを作成する"""
 
-	# 画像分類モデルを作成する
 	@abc.abstractmethod
 	def create_model():
-		pass
+		"""AIのモデルを作成する"""
 
-	# データセットに含まれるクラスごとの画像の数を取得する
 	@abc.abstractmethod
-	def count_image_from_dataset(self, dataset):
-		pass
+	def count_image_from_dataset():
+		"""データセットに含まれるクラスごとの画像の数を取得する"""
 
 	# ディープラーニングを開始する
 	def train_model(self, dataset_path: str, epochs: int = 6, batch_size: int = 32, model_type: ModelType = ModelType.unknown) -> dict:
@@ -174,17 +171,15 @@ class Ai(metaclass = abc.ABCMeta):
 			nlib3.print_error_log("既に初期化されています")
 		return
 
-	# ランダムな画像でモデルの推論結果を表示する
 	@abc.abstractmethod
 	@model_required
 	def inference(self, img_path):
-		pass
+		"""画像のファイルパスを指定して推論する"""
 
-	# テストデータの推論結果を表示する
 	@abc.abstractmethod
 	@model_required
 	def show_model_test(self, dataset_path, max_loop_num = 0, use_val_ds = True):
-		pass
+		"""テストデータの推論結果を表示する"""
 
 
 class ImageClassificationAi(Ai):
@@ -358,6 +353,16 @@ class ImageRegressionAi(Ai):
 				return self.create_model_resnet_rs_regr()
 		return None
 
+	@staticmethod
+	def accuracy(y_true, y_pred):
+		pred_error = abs(y_true - y_pred)
+		result = tf.divide(
+			tf.reduce_sum(
+				tf.cast(pred_error < 0.1, tf.float32)) * 0.5 + tf.reduce_sum(tf.cast(pred_error < 0.2, tf.float32)) * 0.5,		# 誤差が 0.1 以下なら 1, 0.2 以下なら 0.5 とする
+				tf.cast(len(y_pred), tf.float32)
+		)
+		return result
+
 	# ResNet_RSモデルを作成する
 	def create_model_resnet_rs_regr(self):
 		resnet = resnet_rs.ResNetRS152(include_top=False, input_shape=(self.img_height, self.img_width, 3), weights="imagenet-i224")
@@ -379,8 +384,8 @@ class ImageRegressionAi(Ai):
 
 		model.compile(
 			loss="mean_squared_error",
-			optimizer=tf.keras.optimizers.Adam(learning_rate=0.00001),
-			metrics=["accuracy"]
+			optimizer=tf.keras.optimizers.Adam(learning_rate=0.00008),
+			metrics=[self.accuracy]
 		)
 		return model
 
