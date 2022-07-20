@@ -16,6 +16,7 @@ import tf_callback
 
 __version__ = "1.0.0"
 MODEL_DIR = "./model"
+MODEL_FILE = "model"
 RANDOM_SEED = 54
 
 class ModelType(str, enum.Enum):
@@ -28,6 +29,7 @@ class DataKey(str, enum.Enum):
 	version = "version"
 	model = "model"
 	ai_type = "ai_type"
+	trainable = "trainable"
 	class_num = "class_num"
 	class_indices = "class_indices"
 	train_image_num = "train_image_num"
@@ -50,7 +52,7 @@ def model_required(func):
 	return wrapper
 
 class Ai(metaclass = abc.ABCMeta):
-	MODEL_DATA_VERSION = 4
+	MODEL_DATA_VERSION = 5
 
 	def __init__(self, ai_type: AiType, model_name: str):
 		self.model = None
@@ -106,7 +108,7 @@ class Ai(metaclass = abc.ABCMeta):
 		"""データセットに含まれるクラスごとの画像の数を取得する"""
 
 	# ディープラーニングを開始する
-	def train_model(self, dataset_path: str, epochs: int = 6, batch_size: int = 32, model_type: ModelType = ModelType.unknown) -> dict:
+	def train_model(self, dataset_path: str, epochs: int = 6, batch_size: int = 32, model_type: ModelType = ModelType.unknown, trainable: bool = False) -> dict:
 		train_ds, val_ds = self.create_dataset(dataset_path, batch_size, normalize=self.get_normalize_flag(model_type))
 
 		class_image_num, class_indices = self.count_image_from_dataset(train_ds)
@@ -117,13 +119,14 @@ class Ai(metaclass = abc.ABCMeta):
 				return None
 			self.model_data = {}
 			self.model_data[DataKey.model] = model_type			# モデル作成時のみモデルタイプを登録する
-			self.model = self.create_model(model_type, len(class_indices))
+			self.model = self.create_model(model_type, len(class_indices), trainable)
 
 		timetaken = tf_callback.TimeCallback()
 		history = self.model.fit(train_ds, validation_data=val_ds, epochs=epochs, callbacks=[timetaken])
-		self.model.save_weights(pathlib.Path(MODEL_DIR, self.model_name))
+		self.model.save_weights(pathlib.Path(MODEL_DIR, self.model_name, MODEL_FILE))
 		self.model_data[DataKey.version] = self.MODEL_DATA_VERSION
 		self.model_data[DataKey.ai_type] = self.ai_type
+		self.model_data[DataKey.trainable] = trainable
 		self.model_data[DataKey.class_num] = len(class_indices)
 		self.model_data[DataKey.class_indices] = class_indices
 		self.model_data[DataKey.train_image_num] = class_image_num
@@ -134,7 +137,7 @@ class Ai(metaclass = abc.ABCMeta):
 			else:
 				self.model_data[k] = v
 
-		nlib3.save_json(pathlib.Path(MODEL_DIR, self.model_name + ".json"), self.model_data)
+		nlib3.save_json(pathlib.Path(MODEL_DIR, self.model_name, f"{MODEL_FILE}.json"), self.model_data)
 		self.show_history()
 		self.show_model_test(dataset_path)
 		return self.model_data.copy()
@@ -157,6 +160,7 @@ class Ai(metaclass = abc.ABCMeta):
 		ax.set_title("Model loss")
 		ax.set_ylabel("Loss")
 		ax.set_xlabel("Epoch")
+		# ax.set_ylim(0, 0.3)
 		ax.legend(["Train", "Test"], loc="upper left")
 		plt.show()
 		return
@@ -164,9 +168,9 @@ class Ai(metaclass = abc.ABCMeta):
 	# 学習済みのニューラルネットワークを読み込む
 	def load_model(self):
 		if self.model is None:
-			self.model_data = nlib3.load_json(pathlib.Path(MODEL_DIR, self.model_name + ".json"))
-			self.model = self.create_model(self.model_data[DataKey.model], self.model_data[DataKey.class_num])
-			self.model.load_weights(pathlib.Path(MODEL_DIR, self.model_name))
+			self.model_data = nlib3.load_json(pathlib.Path(MODEL_DIR, self.model_name, f"{MODEL_FILE}.json"))
+			self.model = self.create_model(self.model_data[DataKey.model], self.model_data[DataKey.class_num], self.model_data[DataKey.trainable])
+			self.model.load_weights(pathlib.Path(MODEL_DIR, self.model_name, MODEL_FILE))
 		else:
 			nlib3.print_error_log("既に初期化されています")
 		return
@@ -188,16 +192,16 @@ class ImageClassificationAi(Ai):
 		return
 
 	# 画像分類モデルを作成する
-	def create_model(self, model_type: ModelType, num_classes: int):
+	def create_model(self, model_type: ModelType, num_classes: int, trainable: bool = False):
 		match model_type:
 			case ModelType.vgg16_512:
-				return self.create_model_vgg16(num_classes)
+				return self.create_model_vgg16(num_classes, trainable)
 			case ModelType.resnet_rs152_512x2:
-				return self.create_model_resnet_rs(num_classes)
+				return self.create_model_resnet_rs(num_classes, trainable)
 		return None
 
 	# ResNet_RSモデルを作成する
-	def create_model_resnet_rs(self, num_classes):
+	def create_model_resnet_rs(self, num_classes, trainable):
 		resnet = resnet_rs.ResNetRS152(include_top=False, input_shape=(self.img_height, self.img_width, 3), weights="imagenet-i224")
 
 		top_model = tf.keras.Sequential()
@@ -212,8 +216,9 @@ class ImageClassificationAi(Ai):
 			outputs=top_model(resnet.output)
 		)
 
-		for layer in model.layers[:762]:
-			layer.trainable = False
+		if not trainable:
+			for layer in model.layers[:762]:
+				layer.trainable = False
 
 		model.compile(
 			loss="categorical_crossentropy",
@@ -223,7 +228,7 @@ class ImageClassificationAi(Ai):
 		return model
 
 	# vgg16から転移学習するためのmodelを作成する
-	def create_model_vgg16(self, num_classes):
+	def create_model_vgg16(self, num_classes, trainable):
 		vgg16 = tf.keras.applications.vgg16.VGG16(include_top=False, input_shape=(self.img_height, self.img_width, 3))
 
 		top_model =  tf.keras.Sequential()
@@ -237,8 +242,9 @@ class ImageClassificationAi(Ai):
 			outputs=top_model(vgg16.output)
 		)
 
-		for layer in model.layers[:15]:
-			layer.trainable = False
+		if not trainable:
+			for layer in model.layers[:15]:
+				layer.trainable = False
 
 		# 最適化アルゴリズムをSGD（確率的勾配降下法）とし最適化の学習率と修正幅を指定してコンパイルする。
 		model.compile(
@@ -347,10 +353,10 @@ class ImageRegressionAi(Ai):
 		return
 
 	# 画像分類モデルを作成する
-	def create_model(self, model_type: ModelType, num_classes: int):
+	def create_model(self, model_type: ModelType, num_classes: int, trainable: bool = False):
 		match model_type:
 			case ModelType.resnet_rs152_512x2_regr:
-				return self.create_model_resnet_rs_regr()
+				return self.create_model_resnet_rs_regr(trainable)
 		return None
 
 	@staticmethod
@@ -364,7 +370,7 @@ class ImageRegressionAi(Ai):
 		return result
 
 	# ResNet_RSモデルを作成する
-	def create_model_resnet_rs_regr(self):
+	def create_model_resnet_rs_regr(self, trainable):
 		resnet = resnet_rs.ResNetRS152(include_top=False, input_shape=(self.img_height, self.img_width, 3), weights="imagenet-i224")
 
 		top_model = tf.keras.Sequential()
@@ -379,8 +385,9 @@ class ImageRegressionAi(Ai):
 			outputs=top_model(resnet.output)
 		)
 
-		for layer in model.layers[:762]:
-			layer.trainable = False
+		if not trainable:
+			for layer in model.layers[:762]:
+				layer.trainable = False
 
 		model.compile(
 			loss="mean_squared_error",
@@ -393,6 +400,7 @@ class ImageRegressionAi(Ai):
 	def create_dataset(self, data_csv_path, batch_size, normalize = False):
 		generator = self.create_generator(normalize)
 		df = pandas.read_csv(data_csv_path)
+		df = df.sample(frac=1, random_state=0)				# ランダムに並び変える
 		train_ds = generator.flow_from_dataframe(
 			df,
 			target_size = (self.img_height, self.img_width),

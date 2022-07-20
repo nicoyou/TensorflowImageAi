@@ -1,3 +1,6 @@
+ver.5
+データに trainable を追加
+
 ver.4
 データに ai_type を追加
 

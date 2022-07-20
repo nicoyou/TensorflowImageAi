@@ -6,6 +6,7 @@ anime_face_detector/LICENSE
 dll/
 # 学習用のデータセット
 dataset/
+*.csv
 # モデルの学習結果
 model/
 # ログ
