@@ -73,6 +73,14 @@ class Ai(metaclass = abc.ABCMeta):
 		image = tf.expand_dims(image, 0)		# 次元を一つ増やしてバッチ化する
 		return image
 
+	def pillow_image_to_tf_image(self, image, normalize = False):
+		tf.keras.preprocessing.image.img_to_array(image)
+		image = tf.image.resize(image, (self.img_height, self.img_width))
+		if normalize:
+			image /= 255.0						# normalize to [0,1] range
+		image = tf.expand_dims(image, 0)		# 次元を一つ増やしてバッチ化する
+		return image
+
 	# ノーマライズが必要かどうかを取得する
 	def get_normalize_flag(self, model_type: ModelType = ModelType.unknown) -> bool:
 		normalize = True
@@ -177,12 +185,12 @@ class Ai(metaclass = abc.ABCMeta):
 
 	@abc.abstractmethod
 	@model_required
-	def inference(self, img_path):
+	def inference():
 		"""画像のファイルパスを指定して推論する"""
 
 	@abc.abstractmethod
 	@model_required
-	def show_model_test(self, dataset_path, max_loop_num = 0, use_val_ds = True):
+	def show_model_test():
 		"""テストデータの推論結果を表示する"""
 
 
@@ -292,8 +300,10 @@ class ImageClassificationAi(Ai):
 
 	# 指定された画像の推論結果を取得する
 	@model_required
-	def inference(self, img_path):
-		result = self.model(self.preprocess_image(img_path, self.get_normalize_flag()))
+	def inference(self, image):
+		if type(image) is str:
+			image = self.preprocess_image(image, self.get_normalize_flag())
+		result = self.model(image)		
 		return [float(row) for row in result[0]]
 
 	# モデルから返された結果を分類のクラス名に変換する
@@ -438,8 +448,10 @@ class ImageRegressionAi(Ai):
 
 	# 指定された画像の推論結果を取得する
 	@model_required
-	def inference(self, img_path):
-		result = self.model(self.preprocess_image(img_path, self.get_normalize_flag()))
+	def inference(self, image):
+		if type(image) is str:
+			image = self.preprocess_image(image, self.get_normalize_flag())
+		result = self.model(image)
 		return float(result[0])
 
 	# テストデータの推論結果を表示する
