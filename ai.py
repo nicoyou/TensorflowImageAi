@@ -25,6 +25,8 @@ class ModelType(str, enum.Enum):
 	resnet_rs152_512x2 = "resnet_rs152_512x2"
 	resnet_rs152_512x2_regr = "resnet_rs152_512x2_regr"
 
+	pix2pix = "pix2pix"
+
 class DataKey(str, enum.Enum):
 	version = "version"
 	model = "model"
@@ -42,6 +44,8 @@ class AiType(str, enum.Enum):
 	categorical = "categorical"
 	regression = "regression"
 
+	gan = "genera_tive_adversarial_networks"
+	
 # モデルが定義されていなければ実行できない関数のデコレーター
 def model_required(func):
 	def wrapper(self, *args, **kwargs):

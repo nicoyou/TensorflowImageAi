@@ -1,25 +1,34 @@
 import datetime
+import enum
 import os
+import statistics
 import time
 from pathlib import Path
 
 os.environ["PATH"] += ";" + str(Path(__file__).parent / "dll")			# 環境変数に一時的に dll のパスを追加する
 os.environ["XLA_FLAGS"] = f"--xla_gpu_cuda_data_dir={str(Path(__file__).parent / 'CUDA')}"
 
+import nlib3
 import tensorflow as tf
 from matplotlib import pyplot as plt
 
+import ai
+
+class GanDataKey(str, enum.Enum):
+	gen_total_loss = "gen_total_loss"
+	gen_gan_loss = "gen_gan_loss"
+	gen_l1_loss = "gen_l1_loss"
+	disc_loss = "disc_loss"
+
 class PixToPix():
-	DATASET_DIR = Path("./dataset")
 	MODEL_DIR = Path("./models")
 	LOG_DIR = Path("./logs")
-
-	# データセットを構成している画像の枚数
-	BUFFER_SIZE = 400
-	# 元の pix2pix 実験では、バッチ サイズ 1 のほうが U-Net でより良い結果が出る
-	BATCH_SIZE = 1
-	# 画像サイズ
-	IMG_WIDTH = 256
+	MODEL_FILE_NAME = Path("model")
+	JSON_FILE_NAME = Path("model.json")
+	
+	BUFFER_SIZE = 400				# データセットを構成している画像の枚数
+	BATCH_SIZE = 1					# 元の pix2pix 実験では、バッチ サイズ 1 のほうが U-Net でより良い結果が出る
+	IMG_WIDTH = 256					# 画像サイズ
 	IMG_HEIGHT = 256
 
 	OUTPUT_CHANNELS = 3
@@ -27,22 +36,33 @@ class PixToPix():
 
 	def __init__(self, ai_name) -> None:
 		self.ai_name = ai_name
+		self.model_data = {}
+		self.model_data[ai.DataKey.version] = 1
+		self.model_data[ai.DataKey.ai_type] = ai.AiType.gan
+		self.model_data[ai.DataKey.model] = ai.ModelType.pix2pix
+		self.model_data[ai.DataKey.trainable] = True
+
+		self.model_data[GanDataKey.gen_total_loss] = []
+		self.model_data[GanDataKey.gen_gan_loss] = []
+		self.model_data[GanDataKey.gen_l1_loss] = []
+		self.model_data[GanDataKey.disc_loss] = []
+
 		self.loss_object = tf.keras.losses.BinaryCrossentropy(from_logits=True)
 
 		self.generator = self.get_generator()
 		# ジェネレーターのモデル構造を図に出力する
-		tf.keras.utils.plot_model(self.generator, show_shapes=True, dpi=64)
+		#tf.keras.utils.plot_model(self.generator, show_shapes=True, dpi=64)
 
 		self.discriminator = self.get_discriminator()
 		# 分別機を図に出力する
-		tf.keras.utils.plot_model(self.discriminator, show_shapes=True, dpi=64)
+		#tf.keras.utils.plot_model(self.discriminator, show_shapes=True, dpi=64)
 
 		# オプティマイザー
 		self.generator_optimizer = tf.keras.optimizers.Adam(2e-4, beta_1=0.5)
 		self.discriminator_optimizer = tf.keras.optimizers.Adam(2e-4, beta_1=0.5)
 
 		# チェックポイントセーバー
-		self.checkpoint_prefix = str(self.MODEL_DIR / self.ai_name / "model")
+		self.checkpoint_prefix = str(self.MODEL_DIR / self.ai_name / self.MODEL_FILE_NAME)
 		self.checkpoint = tf.train.Checkpoint(
 			generator_optimizer=self.generator_optimizer,
 			discriminator_optimizer=self.discriminator_optimizer,
@@ -269,22 +289,23 @@ class PixToPix():
 
 		os.makedirs("train_log_images", exist_ok=True)
 		if step is not None:
-			plt.savefig(f"train_log_images/{step:07}.png")
+			os.makedirs(str(self.MODEL_DIR / self.ai_name / "images"), exist_ok=True)
+			plt.savefig(self.MODEL_DIR / self.ai_name / "images" / f"{step:07}.png")
 		else:
 			plt.show()
 		return
 
 	# データセットを読み込む
-	def load_dataset(self, data_name):
-		train_dataset = tf.data.Dataset.list_files(str(self.DATASET_DIR / data_name / "train" / "*.png"))
+	def load_dataset(self, dataset_dir):
+		train_dataset = tf.data.Dataset.list_files(str(Path(dataset_dir) / "train" / "*.png"))
 		train_dataset = train_dataset.map(self.load_image_train, num_parallel_calls=tf.data.AUTOTUNE)
 		train_dataset = train_dataset.shuffle(self.BUFFER_SIZE)
 		train_dataset = train_dataset.batch(self.BATCH_SIZE)
 
 		try:
-			test_dataset = tf.data.Dataset.list_files(str(self.DATASET_DIR / data_name / "test" / "*.png"))
+			test_dataset = tf.data.Dataset.list_files(str(Path(dataset_dir) / "test" / "*.png"))
 		except tf.errors.InvalidArgumentError:
-			test_dataset = tf.data.Dataset.list_files(str(self.DATASET_DIR / data_name / "val" / "*.png"))
+			test_dataset = tf.data.Dataset.list_files(str(Path(dataset_dir) / "val" / "*.png"))
 		test_dataset = test_dataset.map(self.load_image_test)
 		test_dataset = test_dataset.batch(self.BATCH_SIZE)
 		return train_dataset, test_dataset
@@ -316,16 +337,23 @@ class PixToPix():
 			tf.summary.scalar("gen_gan_loss", gen_gan_loss, step=step // 1000)
 			tf.summary.scalar("gen_l1_loss", gen_l1_loss, step=step // 1000)
 			tf.summary.scalar("disc_loss", disc_loss, step=step // 1000)
-		return
+		return gen_total_loss, gen_gan_loss, gen_l1_loss, disc_loss
 
 	# 学習を行う
 	def fit(self, train_ds, test_ds, steps):
 		example_input, example_target = next(iter(test_ds.take(1)))
 		start = time.time()
+		os.makedirs(self.MODEL_DIR / self.ai_name, exist_ok=True)
 
 		STEP_INTERVAL = 500
+
+		gen_total_loss_list = []
+		gen_gan_loss_list = []
+		gen_l1_loss_list = []
+		disc_loss_list = []
+
 		for step, (input_image, target) in train_ds.repeat().take(steps).enumerate():
-			if (step) % STEP_INTERVAL == 0:
+			if step % STEP_INTERVAL == 0:
 				if step != 0:
 					print(f"Time taken for {STEP_INTERVAL} steps: {time.time()-start:.2f} sec\n")
 
@@ -335,7 +363,23 @@ class PixToPix():
 			if (step < 100 and step % 10 == 0) or (step < 1000 and step % 100 == 0) or step % 1000 == 0:
 				self.generate_images(self.generator, example_input, example_target, step)
 
-			self.train_step(input_image, target, step)
+			gen_total_loss, gen_gan_loss, gen_l1_loss, disc_loss = self.train_step(input_image, target, step)
+
+			gen_total_loss_list.append(float(gen_total_loss))
+			gen_gan_loss_list.append(float(gen_gan_loss))
+			gen_l1_loss_list.append(float(gen_l1_loss))
+			disc_loss_list.append(float(disc_loss))
+			nlib3.save_json(self.MODEL_DIR / self.ai_name / self.JSON_FILE_NAME, self.model_data)
+			if step % (STEP_INTERVAL // 10) == 0:
+				self.model_data["gen_total_loss"].append(statistics.mean(gen_total_loss_list))
+				self.model_data["gen_gan_loss"].append(statistics.mean(gen_gan_loss_list))
+				self.model_data["gen_l1_loss"].append(statistics.mean(gen_l1_loss_list))
+				self.model_data["disc_loss"].append(statistics.mean(disc_loss_list))
+				gen_total_loss_list.clear()
+				gen_gan_loss_list.clear()
+				gen_l1_loss_list.clear()
+				disc_loss_list.clear()
+				nlib3.save_json(self.MODEL_DIR / self.ai_name / self.JSON_FILE_NAME, self.model_data)
 
 			# 訓練のステップ
 			if (step + 1) % 10 == 0:
@@ -349,19 +393,49 @@ class PixToPix():
 	# モデルを読み込む
 	def load_model(self):
 		self.checkpoint.restore(tf.train.latest_checkpoint(str(self.MODEL_DIR / self.ai_name)))
+		self.model_data = nlib3.load_json(self.MODEL_DIR / self.ai_name / self.JSON_FILE_NAME)
 		return
 
 	# データセットの推論結果を表示する
 	def show_test(self, dataset):
-		data_num = len(dataset)
-		for inp, tar in dataset.take(data_num):
+		for inp, tar in dataset.take(len(dataset)):
 			self.generate_images(self.generator, inp, tar, step=None)
 		return
 
+	# モデルの学習履歴をグラフで表示する
+	def show_history(self):
+		fig = plt.figure(figsize=(6.4 * 2, 4.8 * 2))
+		fig.suptitle("Learning history")
+		ax = fig.add_subplot(2, 2, 1)
+		ax.plot(self.model_data[GanDataKey.disc_loss])
+		ax.set_title("Disc loss")
+		ax.set_ylabel("Loss")
+		ax.set_xlabel("Epoch")
+
+		ax = fig.add_subplot(2, 2, 2)
+		ax.plot(self.model_data[GanDataKey.gen_gan_loss])
+		ax.set_title("Gen gan loss")
+		ax.set_ylabel("Loss")
+		ax.set_xlabel("Epoch")
+
+		ax = fig.add_subplot(2, 2, 3)
+		ax.plot(self.model_data[GanDataKey.gen_l1_loss])
+		ax.set_title("Gen l1 loss")
+		ax.set_ylabel("Loss")
+		ax.set_xlabel("Epoch")
+
+		ax = fig.add_subplot(2, 2, 4)
+		ax.plot(self.model_data[GanDataKey.gen_total_loss])
+		ax.set_title("Gen total loss")
+		ax.set_ylabel("Loss")
+		ax.set_xlabel("Epoch")
+		plt.show()
+		return
 
 if __name__ == "__main__":
 	p2p = PixToPix("test")
-	train_dataset, test_dataset = p2p.load_dataset("item")
+	train_dataset, test_dataset = p2p.load_dataset("dataset/out_p2p")
 	# p2p.load_model()
+	# p2p.show_history()
 	# p2p.show_test(test_dataset)
 	p2p.fit(train_dataset, test_dataset, steps=40000000)
