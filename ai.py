@@ -15,7 +15,7 @@ import tensorflow as tf
 import tf_callback
 
 __version__ = "1.0.0"
-MODEL_DIR = "./model"
+MODEL_DIR = "./models"
 MODEL_FILE = "model"
 RANDOM_SEED = 54
 
