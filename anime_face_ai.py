@@ -61,8 +61,32 @@ class AnimeFaceAi():
 				result[define.ImageDataKey.people].append(face_result)
 		return result
 
+	def get_face_data_from_imagelist(self, image_list: list[str]) -> dict:
+		"""複数の画像のアニメ顔を検出する
+
+		Args:
+			image_list: 画像のファイルパスのリスト
+
+		Returns:
+			ファイル名をキーとして全ての画像のアニメ顔情報を格納した辞書
+		"""
+		image_data = {}
+		for row in image_list:
+			try:
+				result = self.get_face_data(row)
+			except Exception:
+				image_data[str(pathlib.Path(row).name)] = {}
+			else:
+				image_data[str(pathlib.Path(row).name)] = result
+		return image_data
+
 if __name__ == "__main__":
 	afai = AnimeFaceAi()
 	#afai.crop_image_face_dir("./dataset/dataset2", "./out")
-	print(afai.get_face_data("./dataset/anime_age/0/014.jpg"))
+
+	import nlib3
+	import glob
+	image_path = "./dataset/anime_age/0"
+	images = glob.glob(str(pathlib.Path(image_path, "*")))
+	nlib3.save_json(pathlib.Path(image_path, "image_data.json"), afai.get_face_data_from_imagelist(images))
 	

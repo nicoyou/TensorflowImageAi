@@ -1,9 +1,9 @@
 import abc
 import enum
 import os
-import pathlib
+from pathlib import Path
 
-os.environ["PATH"] += ";" + str(pathlib.Path(pathlib.Path(__file__).parent, "dll"))			# 環境変数に一時的に dll のパスを追加する
+os.environ["PATH"] += ";" + str(Path(__file__).parent / "dll")			# 環境変数に一時的に dll のパスを追加する
 
 import matplotlib.pyplot as plt
 import nlib3
@@ -73,6 +73,7 @@ class Ai(metaclass = abc.ABCMeta):
 		image = tf.expand_dims(image, 0)		# 次元を一つ増やしてバッチ化する
 		return image
 
+	# pillowで読み込んだ画像をテンソルに変換する
 	def pillow_image_to_tf_image(self, image, normalize = False):
 		tf.keras.preprocessing.image.img_to_array(image)
 		image = tf.image.resize(image, (self.img_height, self.img_width))
@@ -131,7 +132,7 @@ class Ai(metaclass = abc.ABCMeta):
 
 		timetaken = tf_callback.TimeCallback()
 		history = self.model.fit(train_ds, validation_data=val_ds, epochs=epochs, callbacks=[timetaken])
-		self.model.save_weights(pathlib.Path(MODEL_DIR, self.model_name, MODEL_FILE))
+		self.model.save_weights(Path(MODEL_DIR, self.model_name, MODEL_FILE))
 		self.model_data[DataKey.version] = self.MODEL_DATA_VERSION
 		self.model_data[DataKey.ai_type] = self.ai_type
 		self.model_data[DataKey.trainable] = trainable
@@ -145,7 +146,7 @@ class Ai(metaclass = abc.ABCMeta):
 			else:
 				self.model_data[k] = v
 
-		nlib3.save_json(pathlib.Path(MODEL_DIR, self.model_name, f"{MODEL_FILE}.json"), self.model_data)
+		nlib3.save_json(Path(MODEL_DIR, self.model_name, f"{MODEL_FILE}.json"), self.model_data)
 		self.show_history()
 		self.show_model_test(dataset_path)
 		return self.model_data.copy()
@@ -176,9 +177,9 @@ class Ai(metaclass = abc.ABCMeta):
 	# 学習済みのニューラルネットワークを読み込む
 	def load_model(self):
 		if self.model is None:
-			self.model_data = nlib3.load_json(pathlib.Path(MODEL_DIR, self.model_name, f"{MODEL_FILE}.json"))
+			self.model_data = nlib3.load_json(Path(MODEL_DIR, self.model_name, f"{MODEL_FILE}.json"))
 			self.model = self.create_model(self.model_data[DataKey.model], self.model_data[DataKey.class_num], self.model_data[DataKey.trainable])
-			self.model.load_weights(pathlib.Path(MODEL_DIR, self.model_name, MODEL_FILE))
+			self.model.load_weights(Path(MODEL_DIR, self.model_name, MODEL_FILE))
 		else:
 			nlib3.print_error_log("既に初期化されています")
 		return
