@@ -293,6 +293,8 @@ class PixToPix():
 			plt.savefig(self.MODEL_DIR / self.ai_name / "images" / f"{step:07}.png")
 		else:
 			plt.show()
+		plt.clf()		# 図形のクリア
+		plt.close()		# windowを閉じる
 		return
 
 	# データセットを読み込む
@@ -379,7 +381,6 @@ class PixToPix():
 				gen_gan_loss_list.clear()
 				gen_l1_loss_list.clear()
 				disc_loss_list.clear()
-				nlib3.save_json(self.MODEL_DIR / self.ai_name / self.JSON_FILE_NAME, self.model_data)
 
 			# 訓練のステップ
 			if (step + 1) % 10 == 0:
@@ -388,6 +389,7 @@ class PixToPix():
 			# 5kステップごとにチェックポイントを保存する
 			if (step + 1) % 5000 == 0:
 				self.checkpoint.save(file_prefix=self.checkpoint_prefix)
+				nlib3.save_json(self.MODEL_DIR / self.ai_name / self.JSON_FILE_NAME, self.model_data)
 		return
 
 	# モデルを読み込む
@@ -433,9 +435,9 @@ class PixToPix():
 		return
 
 if __name__ == "__main__":
-	p2p = PixToPix("test")
+	p2p = PixToPix("pix2pix_naked_girl_128")
 	train_dataset, test_dataset = p2p.load_dataset("dataset/out_p2p")
 	# p2p.load_model()
 	# p2p.show_history()
 	# p2p.show_test(test_dataset)
-	p2p.fit(train_dataset, test_dataset, steps=40000000)
+	p2p.fit(train_dataset, test_dataset, steps=50000000)
