@@ -43,10 +43,14 @@ def make_pix2pix_dataset(input_image_dir, output_image_dir, out_dir = "./"):
 		file_name = Path(file_path).stem
 		img = Image.open(file_path)
 		img_resized = expand2square(img, (0, 0, 0)).resize((256, 256))
-		o_img = Image.open([row for row in o_images if Path(row).stem == file_name][0])
+		try:
+			o_img = Image.open([row for row in o_images if Path(row).stem == file_name][0])
+		except Exception as e:
+			print(e)
+			print(file_path)
 		o_img_resized = expand2square(o_img, (0, 0, 0)).resize((256, 256))
 		result_img = hconcat(o_img_resized, img_resized)
 		result_img.save(Path(out_dir) / f"{file_name}.png")
 
 if __name__ == "__main__":
-	make_pix2pix_dataset("dataset/original/input", "dataset/original/real", "dataset/out_p2p")
+	make_pix2pix_dataset("dataset/original/naked_girl/input", "dataset/original/naked_girl/real", "dataset/out_p2p")
