@@ -23,138 +23,8 @@ class GanDataKey(str, enum.Enum):
 	gen_l1_loss = "gen_l1_loss"
 	disc_loss = "disc_loss"
 
-class PixToPix():
-	MODEL_DIR = Path("./models")
-	LOG_DIR = Path("./logs")
-	MODEL_FILE_NAME = Path("model")
-	JSON_FILE_NAME = Path("model.json")
-	
-	BUFFER_SIZE = 400				# データセットを構成している画像の枚数
-	BATCH_SIZE = 1					# 元の pix2pix 実験では、バッチ サイズ 1 のほうが U-Net でより良い結果が出る
-	IMG_WIDTH = 256					# 画像サイズ
-	IMG_HEIGHT = 256
-
+class PixToPixModel():
 	OUTPUT_CHANNELS = 3
-	LAMBDA = 100
-
-	def __init__(self, ai_name) -> None:
-		self.ai_name = ai_name
-		self.model_data = {}
-		self.model_data[ai.DataKey.version] = 1
-		self.model_data[ai.DataKey.ai_type] = ai.AiType.gan
-		self.model_data[ai.DataKey.model] = ai.ModelType.pix2pix
-		self.model_data[ai.DataKey.trainable] = True
-
-		self.model_data[GanDataKey.gen_total_loss] = []
-		self.model_data[GanDataKey.gen_gan_loss] = []
-		self.model_data[GanDataKey.gen_l1_loss] = []
-		self.model_data[GanDataKey.disc_loss] = []
-
-		self.loss_object = tf.keras.losses.BinaryCrossentropy(from_logits=True)
-
-		self.generator = self.get_generator()
-		# ジェネレーターのモデル構造を図に出力する
-		#tf.keras.utils.plot_model(self.generator, show_shapes=True, dpi=64)
-
-		self.discriminator = self.get_discriminator()
-		# 分別機を図に出力する
-		#tf.keras.utils.plot_model(self.discriminator, show_shapes=True, dpi=64)
-
-		# オプティマイザー
-		self.generator_optimizer = tf.keras.optimizers.Adam(2e-4, beta_1=0.5)
-		self.discriminator_optimizer = tf.keras.optimizers.Adam(2e-4, beta_1=0.5)
-
-		# チェックポイントセーバー
-		self.checkpoint_prefix = str(self.MODEL_DIR / self.ai_name / self.MODEL_FILE_NAME)
-		self.checkpoint = tf.train.Checkpoint(
-			generator_optimizer=self.generator_optimizer,
-			discriminator_optimizer=self.discriminator_optimizer,
-			generator=self.generator,
-			discriminator=self.discriminator)
-
-		self.summary_writer = tf.summary.create_file_writer(str(self.LOG_DIR / "fit" / datetime.datetime.now().strftime("%Y%m%d-%H%M%S")))
-		return
-
-	# 画像ファイルを読み込んで、２つの画像テンソルに分解する
-	def load(self, image_file):
-		# 画像ファイルを読み取って uint8 テンソルにデコードする
-		image = tf.io.read_file(image_file)
-		image = tf.io.decode_jpeg(image)
-
-		# 各画像テンソルを２つのテンソルに分割する
-		w = tf.shape(image)[1]
-		w = w // 2
-		input_image = image[:, w:, :]
-		real_image = image[:, :w, :]
-
-		# 両方の画像を float32 テンソルに変換する
-		input_image = tf.cast(input_image, tf.float32)
-		real_image = tf.cast(real_image, tf.float32)
-		return input_image, real_image
-
-	# 画像をリサイズする
-	def resize(self, input_image, real_image, height, width):
-		input_image = tf.image.resize(input_image, [height, width], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
-		real_image = tf.image.resize(real_image, [height, width], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
-		return input_image, real_image
-
-	# ランダムな位置でトリミングする
-	def random_crop(self, input_image, real_image):
-		stacked_image = tf.stack([input_image, real_image], axis=0)
-		cropped_image = tf.image.random_crop(
-			stacked_image, size=[2, self.IMG_HEIGHT, self.IMG_WIDTH, 3])
-
-		return cropped_image[0], cropped_image[1]
-
-	# 画像を [-1, 1] の範囲に正規化する
-	def normalize(self, input_image, real_image):
-		input_image = (input_image / 127.5) - 1
-		real_image = (real_image / 127.5) - 1
-
-		return input_image, real_image
-
-	# 訓練用データの前処理を行う
-	@tf.function()
-	def random_jitter(self, input_image, real_image):
-		# 286x286 にリサイズする
-		input_image, real_image = self.resize(input_image, real_image, 286, 286)
-
-		# ランダムにトリミングして 256x256 に戻す
-		input_image, real_image = self.random_crop(input_image, real_image)
-
-		if tf.random.uniform(()) > 0.5:
-			# ランダムにミラーリングする
-			input_image = tf.image.flip_left_right(input_image)
-			real_image = tf.image.flip_left_right(real_image)
-
-		return input_image, real_image
-
-	# 前処理された出力の一部を表示する
-	def show_image_sample(self):
-		plt.figure(figsize=(6, 6))
-		inp, re = test_dataset.take(1)
-		for i in range(4):
-			rj_inp, rj_re = self.random_jitter(inp, re)
-			plt.subplot(2, 2, i + 1)
-			plt.imshow(rj_inp / 255.0)
-			plt.axis("off")
-		plt.show()
-
-	# 訓練用の画像を読み込む
-	def load_image_train(self, image_file):
-		input_image, real_image = self.load(image_file)
-		input_image, real_image = self.random_jitter(input_image, real_image)
-		input_image, real_image = self.normalize(input_image, real_image)
-
-		return input_image, real_image
-
-	# テスト用の画像を読み込む
-	def load_image_test(self, image_file):
-		input_image, real_image = self.load(image_file)
-		input_image, real_image = self.resize(input_image, real_image, self.IMG_HEIGHT, self.IMG_WIDTH)
-		input_image, real_image = self.normalize(input_image, real_image)
-
-		return input_image, real_image
 
 	# ダウンサンプラー
 	def downsample(self, filters, size, apply_batchnorm=True):
@@ -258,6 +128,139 @@ class PixToPix():
 
 		return tf.keras.Model(inputs=[inp, tar], outputs=last)
 
+class PixToPix():
+	MODEL_DIR = Path("./models")
+	LOG_DIR = Path("./logs")
+	MODEL_FILE_NAME = Path("model")
+	JSON_FILE_NAME = Path("model.json")
+	
+	BUFFER_SIZE = 400				# データセットを構成している画像の枚数
+	BATCH_SIZE = 1					# 元の pix2pix 実験では、バッチ サイズ 1 のほうが U-Net でより良い結果が出る
+	IMG_WIDTH = 256					# 画像サイズ
+	IMG_HEIGHT = 256
+
+	LAMBDA = 100
+
+	def __init__(self, ai_name) -> None:
+		self.ai_name = ai_name
+		self.model_data = {}
+		self.model_data[ai.DataKey.version] = 1
+		self.model_data[ai.DataKey.ai_type] = ai.AiType.gan
+		self.model_data[ai.DataKey.model] = ai.ModelType.pix2pix
+		self.model_data[ai.DataKey.trainable] = True
+
+		self.model_data[GanDataKey.gen_total_loss] = []
+		self.model_data[GanDataKey.gen_gan_loss] = []
+		self.model_data[GanDataKey.gen_l1_loss] = []
+		self.model_data[GanDataKey.disc_loss] = []
+
+		self.loss_object = tf.keras.losses.BinaryCrossentropy(from_logits=True)
+
+		pix2pix_model = PixToPixModel()
+		self.generator = pix2pix_model.get_generator()
+		# ジェネレーターのモデル構造を図に出力する
+		#tf.keras.utils.plot_model(self.generator, show_shapes=True, dpi=64)
+
+		self.discriminator = pix2pix_model.get_discriminator()
+		# 分別機を図に出力する
+		#tf.keras.utils.plot_model(self.discriminator, show_shapes=True, dpi=64)
+
+		# オプティマイザー
+		self.generator_optimizer = tf.keras.optimizers.Adam(2e-4, beta_1=0.5)
+		self.discriminator_optimizer = tf.keras.optimizers.Adam(2e-4, beta_1=0.5)
+
+		# チェックポイントセーバー
+		self.checkpoint_prefix = str(self.MODEL_DIR / self.ai_name / self.MODEL_FILE_NAME)
+		self.checkpoint = tf.train.Checkpoint(
+			generator_optimizer=self.generator_optimizer,
+			discriminator_optimizer=self.discriminator_optimizer,
+			generator=self.generator,
+			discriminator=self.discriminator)
+
+		self.summary_writer = tf.summary.create_file_writer(str(self.LOG_DIR / "fit" / datetime.datetime.now().strftime("%Y%m%d-%H%M%S")))
+		return
+
+	# 画像ファイルを読み込んで、２つの画像テンソルに分解する
+	def load(self, image_file):
+		# 画像ファイルを読み取って uint8 テンソルにデコードする
+		image = tf.io.read_file(image_file)
+		image = tf.io.decode_jpeg(image)
+
+		# 各画像テンソルを２つのテンソルに分割する
+		w = tf.shape(image)[1]
+		w = w // 2
+		input_image = image[:, w:, :]
+		real_image = image[:, :w, :]
+
+		# 両方の画像を float32 テンソルに変換する
+		input_image = tf.cast(input_image, tf.float32)
+		real_image = tf.cast(real_image, tf.float32)
+		return input_image, real_image
+
+	# 画像をリサイズする
+	def resize(self, input_image, real_image, height, width):
+		input_image = tf.image.resize(input_image, [height, width], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
+		real_image = tf.image.resize(real_image, [height, width], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
+		return input_image, real_image
+
+	# ランダムな位置でトリミングする
+	def random_crop(self, input_image, real_image):
+		stacked_image = tf.stack([input_image, real_image], axis=0)
+		cropped_image = tf.image.random_crop(
+			stacked_image, size=[2, self.IMG_HEIGHT, self.IMG_WIDTH, 3])
+
+		return cropped_image[0], cropped_image[1]
+
+	# 画像を [-1, 1] の範囲に正規化する
+	def normalize(self, input_image, real_image):
+		input_image = (input_image / 127.5) - 1
+		real_image = (real_image / 127.5) - 1
+
+		return input_image, real_image
+
+	# 訓練用データの前処理を行う
+	@tf.function()
+	def random_jitter(self, input_image, real_image):
+		# 286x286 にリサイズする
+		input_image, real_image = self.resize(input_image, real_image, 286, 286)
+
+		# ランダムにトリミングして 256x256 に戻す
+		input_image, real_image = self.random_crop(input_image, real_image)
+
+		if tf.random.uniform(()) > 0.5:
+			# ランダムにミラーリングする
+			input_image = tf.image.flip_left_right(input_image)
+			real_image = tf.image.flip_left_right(real_image)
+
+		return input_image, real_image
+
+	# 前処理された出力の一部を表示する
+	def show_image_sample(self):
+		plt.figure(figsize=(6, 6))
+		inp, re = test_dataset.take(1)
+		for i in range(4):
+			rj_inp, rj_re = self.random_jitter(inp, re)
+			plt.subplot(2, 2, i + 1)
+			plt.imshow(rj_inp / 255.0)
+			plt.axis("off")
+		plt.show()
+
+	# 訓練用の画像を読み込む
+	def load_image_train(self, image_file):
+		input_image, real_image = self.load(image_file)
+		input_image, real_image = self.random_jitter(input_image, real_image)
+		input_image, real_image = self.normalize(input_image, real_image)
+
+		return input_image, real_image
+
+	# テスト用の画像を読み込む
+	def load_image_test(self, image_file):
+		input_image, real_image = self.load(image_file)
+		input_image, real_image = self.resize(input_image, real_image, self.IMG_HEIGHT, self.IMG_WIDTH)
+		input_image, real_image = self.normalize(input_image, real_image)
+
+		return input_image, real_image
+
 	# ジェネレーターの損失計算を行う
 	def generator_loss(self, disc_generated_output, gen_output, target):
 		gan_loss = self.loss_object(tf.ones_like(disc_generated_output), disc_generated_output)
@@ -267,7 +270,7 @@ class PixToPix():
 		total_gen_loss = gan_loss + (self.LAMBDA * l1_loss)
 		return total_gen_loss, gan_loss, l1_loss
 
-	# 弁別器の損失
+	# 弁別器の損失計算を行う
 	def discriminator_loss(self, disc_real_output, disc_generated_output):
 		real_loss = self.loss_object(tf.ones_like(disc_real_output), disc_real_output)
 
