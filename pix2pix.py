@@ -11,8 +11,11 @@ os.environ["XLA_FLAGS"] = f"--xla_gpu_cuda_data_dir={str(Path(__file__).parent /
 import nlib3
 import tensorflow as tf
 from matplotlib import pyplot as plt
+import matplotlib
 
 import ai
+
+matplotlib.use("Agg")			# メモリリーク対策
 
 class GanDataKey(str, enum.Enum):
 	gen_total_loss = "gen_total_loss"
@@ -275,7 +278,7 @@ class PixToPix():
 	# 3つの画像を表示する
 	def generate_images(self, model, test_input, tar, step):
 		prediction = model(test_input, training=True)
-		plt.figure(figsize=(15, 15))
+		plt.figure(figsize=(15, 6))
 
 		display_list = [test_input[0], tar[0], prediction[0]]
 		title = ["Input Image", "Ground Truth", "Predicted Image"]
@@ -371,7 +374,6 @@ class PixToPix():
 			gen_gan_loss_list.append(float(gen_gan_loss))
 			gen_l1_loss_list.append(float(gen_l1_loss))
 			disc_loss_list.append(float(disc_loss))
-			nlib3.save_json(self.MODEL_DIR / self.ai_name / self.JSON_FILE_NAME, self.model_data)
 			if step % (STEP_INTERVAL // 10) == 0:
 				self.model_data["gen_total_loss"].append(statistics.mean(gen_total_loss_list))
 				self.model_data["gen_gan_loss"].append(statistics.mean(gen_gan_loss_list))
@@ -386,8 +388,8 @@ class PixToPix():
 			if (step + 1) % 10 == 0:
 				print(".", end="", flush=True)
 
-			# 5kステップごとにチェックポイントを保存する
-			if (step + 1) % 5000 == 0:
+			# 10kステップごとにチェックポイントを保存する
+			if (step + 1) % 10000 == 0:
 				self.checkpoint.save(file_prefix=self.checkpoint_prefix)
 				nlib3.save_json(self.MODEL_DIR / self.ai_name / self.JSON_FILE_NAME, self.model_data)
 		return
@@ -435,9 +437,9 @@ class PixToPix():
 		return
 
 if __name__ == "__main__":
-	p2p = PixToPix("pix2pix_naked_girl_128")
+	p2p = PixToPix("pix2pix_naked_girl_256")
 	train_dataset, test_dataset = p2p.load_dataset("dataset/out_p2p")
-	# p2p.load_model()
-	# p2p.show_history()
-	# p2p.show_test(test_dataset)
-	p2p.fit(train_dataset, test_dataset, steps=50000000)
+	p2p.load_model()
+	p2p.show_history()
+	p2p.show_test(test_dataset)
+	# p2p.fit(train_dataset, test_dataset, steps=50000000)
