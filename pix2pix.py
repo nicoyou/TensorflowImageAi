@@ -234,16 +234,20 @@ class PixToPix():
 
 		return input_image, real_image
 
-	# 前処理された出力の一部を表示する
-	def show_image_sample(self):
+	# 前処理された画像の一部を表示する
+	def show_image_sample(self, dataset):
+		loop_num = len(dataset)
+		if loop_num > 5:
+			loop_num = 5
 		plt.figure(figsize=(6, 6))
-		inp, re = test_dataset.take(1)
-		for i in range(4):
-			rj_inp, rj_re = self.random_jitter(inp, re)
-			plt.subplot(2, 2, i + 1)
-			plt.imshow(rj_inp / 255.0)
-			plt.axis("off")
-		plt.show()
+		for inp, re in dataset.take(loop_num):
+			for i in range(4):
+				rj_inp, rj_re = self.random_jitter(inp[0], re[0])
+				plt.subplot(2, 2, i + 1)
+				plt.imshow(rj_inp * 0.5 + 0.5)
+				plt.axis(False)
+			plt.show()
+		return
 
 	# 訓練用の画像を読み込む
 	def load_image_train(self, image_file):
