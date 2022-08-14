@@ -33,6 +33,7 @@ class GanDataKey(str, enum.Enum):
 	gen_gan_loss = "gen_gan_loss"
 	gen_l1_loss = "gen_l1_loss"
 	disc_loss = "disc_loss"	
+	time = "time"
 
 
 class ImageDataKey(str, enum.Enum):

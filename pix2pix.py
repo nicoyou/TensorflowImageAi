@@ -143,12 +143,14 @@ class PixToPix():
 		self.model_data[define.AiDataKey.model] = define.ModelType.pix2pix
 		self.model_data[define.AiDataKey.trainable] = True
 
+		self.model_data[define.AiDataKey.train_image_num] = 0
+		self.model_data[define.AiDataKey.test_image_num] = 0
+
 		self.model_data[define.GanDataKey.gen_total_loss] = []
 		self.model_data[define.GanDataKey.gen_gan_loss] = []
 		self.model_data[define.GanDataKey.gen_l1_loss] = []
 		self.model_data[define.GanDataKey.disc_loss] = []
-		self.model_data[define.AiDataKey.train_image_num] = 0
-		self.model_data[define.AiDataKey.test_image_num] = 0
+		self.model_data[define.GanDataKey.time] = []
 
 		self.loss_object = tf.keras.losses.BinaryCrossentropy(from_logits=True)
 
@@ -278,9 +280,9 @@ class PixToPix():
 		total_disc_loss = real_loss + generated_loss
 		return total_disc_loss
 
-	# 3つの画像を表示する
-	def generate_images(self, model, test_input, tar, step):
-		prediction = model(test_input, training=True)
+	# 入力画像、教師画像、出力画像を同時に出力する
+	def generate_images(self, test_input, tar, step = None):
+		prediction = self.generator(test_input, training=True)
 		plt.figure(figsize=(15, 6))
 
 		display_list = [test_input[0], tar[0], prediction[0]]
@@ -354,7 +356,7 @@ class PixToPix():
 		self.model_data[define.AiDataKey.test_image_num] = len(test_ds)
 
 		example_input, example_target = next(iter(test_ds.take(1)))
-		start = time.time()
+		start_time = time.time()
 		os.makedirs(self.MODEL_DIR / self.ai_name, exist_ok=True)
 
 		gen_total_loss_list = []
@@ -364,12 +366,14 @@ class PixToPix():
 
 		for step, (input_image, target) in train_ds.repeat().take(steps).enumerate():
 			if step % STEP_INTERVAL == 0:
-				start = time.time()
+				if step != 0:
+					self.model_data[define.GanDataKey.time].append(time.time() - start_time)
+				start_time = time.time()
 				progbar = tf.keras.utils.Progbar(STEP_INTERVAL)
 				print(f"Step: {step // 1000}k")
 
 			if (step < 100 and step % 10 == 0) or (step < 1000 and step % 100 == 0) or step % 1000 == 0:
-				self.generate_images(self.generator, example_input, example_target, step)
+				self.generate_images(example_input, example_target, step)
 
 			gen_total_loss, gen_gan_loss, gen_l1_loss, disc_loss = self.train_step(input_image, target, step)
 
@@ -405,7 +409,7 @@ class PixToPix():
 	# データセットの推論結果を表示する
 	def show_test(self, dataset):
 		for inp, tar in dataset.take(len(dataset)):
-			self.generate_images(self.generator, inp, tar, step=None)
+			self.generate_images(inp, tar)
 		return
 
 	# モデルの学習履歴をグラフで表示する

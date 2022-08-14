@@ -20,7 +20,7 @@ def vconcat(im1, im2):
 	return dst
 
 # 余白を追加してアスペクト比を維持しながら正方形に変換する
-def expand_to_square_pad(pil_img, background_color):
+def expand_to_square_pad(pil_img, background_color = (0, 0, 0)):
 	width, height = pil_img.size
 	if width == height:
 		return pil_img
@@ -60,8 +60,8 @@ def make_pix2pix_dataset(input_image_dir, output_image_dir, out_dir = "./"):
 			print(e)
 			print(file_path)
 			continue
-		img_resized = expand_to_square_pad(img, (0, 0, 0)).resize((256, 256))
-		o_img_resized = expand_to_square_pad(o_img, (0, 0, 0)).resize((256, 256))
+		img_resized = expand_to_square_pad(img).resize((256, 256))
+		o_img_resized = expand_to_square_pad(o_img).resize((256, 256))
 		result_img = hconcat(o_img_resized, img_resized)
 		result_img.save(Path(out_dir) / f"{file_name}.png")
 
