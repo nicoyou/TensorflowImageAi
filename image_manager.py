@@ -1,5 +1,6 @@
 import glob
 import pathlib
+from typing import Any
 
 import cv2
 import matplotlib.pyplot as plt
@@ -14,16 +15,27 @@ EXTENSION_LIST = [
 	"webp",
 ]
 
-# openCV用の画像を読み込む
-def load_image(image_path):
+def load_image(image_path: str) -> Any:
+	"""画像をopenCVで読み込む ( ファイルパスに日本語を含む場合でも動作する )
+
+	Args:
+		image_path: 画像のファイルパス
+
+	Returns:
+		openCV形式の画像オブジェクト
+	"""
 	pil_img = Image.open(image_path)					# Pillowで画像ファイルを開く
 	image = np.array(pil_img)							# PillowからNumPyへ変換
 	pil_img = pil_img.convert("RGB")					# カラー画像に変換する
 	image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)		# RGBからBGRへ変換する
 	return image
 
-# ２枚の画像を同時に描画して比較する
-def image_comparison(images):
+def image_comparison(images: tuple | list) -> None:
+	"""２枚の画像を同時に描画して比較する
+
+	Args:
+		images: openCV形式の画像を 2 つ格納したリスト
+	"""
 	fig = plt.figure(dpi=160)
 	for i, im in enumerate(images):
 		fig.add_subplot(1, 2, i + 1).set_title(str(i))
@@ -33,8 +45,15 @@ def image_comparison(images):
 	plt.show()
 	return
 
-# ディレクトリ内の全ての画像を取得する
-def get_image_path_from_dir(dir_path):
+def get_image_path_from_dir(dir_path: str) -> None:
+	"""ディレクトリ内全ての画像を再帰的に検索する
+
+	Args:
+		dir_path: 画像を検索するディレクトリ
+
+	Returns:
+		検出した画像パスの一覧
+	"""
 	images = glob.glob(str(pathlib.Path(dir_path, "**")), recursive=True)
 	image_path_list = []
 	for image in images:
