@@ -1,4 +1,7 @@
 # categorical, regression
+v6
+test_image_num を追加
+
 v5
 データに trainable を追加
 

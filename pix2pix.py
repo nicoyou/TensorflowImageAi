@@ -14,16 +14,9 @@ from matplotlib import pyplot as plt
 import matplotlib
 
 import ai
+import define
 
 matplotlib.use("Agg")			# メモリリーク対策
-
-class GanDataKey(str, enum.Enum):
-	gen_total_loss = "gen_total_loss"
-	gen_gan_loss = "gen_gan_loss"
-	gen_l1_loss = "gen_l1_loss"
-	disc_loss = "disc_loss"
-	train_image_num = "train_image_num"
-	test_image_num = "test_image_num"
 
 class PixToPixModel():
 	OUTPUT_CHANNELS = 3
@@ -145,17 +138,17 @@ class PixToPix():
 	def __init__(self, ai_name) -> None:
 		self.ai_name = ai_name
 		self.model_data = {}
-		self.model_data[ai.DataKey.version] = 2
-		self.model_data[ai.DataKey.ai_type] = ai.AiType.gan
-		self.model_data[ai.DataKey.model] = ai.ModelType.pix2pix
-		self.model_data[ai.DataKey.trainable] = True
+		self.model_data[define.AiDataKey.version] = 2
+		self.model_data[define.AiDataKey.ai_type] = define.AiType.gan
+		self.model_data[define.AiDataKey.model] = define.ModelType.pix2pix
+		self.model_data[define.AiDataKey.trainable] = True
 
-		self.model_data[GanDataKey.gen_total_loss] = []
-		self.model_data[GanDataKey.gen_gan_loss] = []
-		self.model_data[GanDataKey.gen_l1_loss] = []
-		self.model_data[GanDataKey.disc_loss] = []
-		self.model_data[GanDataKey.train_image_num] = 0
-		self.model_data[GanDataKey.test_image_num] = 0
+		self.model_data[define.GanDataKey.gen_total_loss] = []
+		self.model_data[define.GanDataKey.gen_gan_loss] = []
+		self.model_data[define.GanDataKey.gen_l1_loss] = []
+		self.model_data[define.GanDataKey.disc_loss] = []
+		self.model_data[define.AiDataKey.train_image_num] = 0
+		self.model_data[define.AiDataKey.test_image_num] = 0
 
 		self.loss_object = tf.keras.losses.BinaryCrossentropy(from_logits=True)
 
@@ -356,9 +349,9 @@ class PixToPix():
 
 	# 学習を行う
 	def fit(self, train_ds, test_ds, steps):
-		STEP_INTERVAL = 500
-		self.model_data[GanDataKey.train_image_num] = len(train_ds)
-		self.model_data[GanDataKey.test_image_num] = len(test_ds)
+		STEP_INTERVAL = 1000
+		self.model_data[define.AiDataKey.train_image_num] = len(train_ds)
+		self.model_data[define.AiDataKey.test_image_num] = len(test_ds)
 
 		example_input, example_target = next(iter(test_ds.take(1)))
 		start = time.time()
@@ -371,11 +364,9 @@ class PixToPix():
 
 		for step, (input_image, target) in train_ds.repeat().take(steps).enumerate():
 			if step % STEP_INTERVAL == 0:
-				if step != 0:
-					print(f"Time taken for {STEP_INTERVAL} steps: {time.time()-start:.2f} sec\n")
-
 				start = time.time()
-				print(f"Step: {step / 1000:.1f}k")
+				progbar = tf.keras.utils.Progbar(STEP_INTERVAL)
+				print(f"Step: {step // 1000}k")
 
 			if (step < 100 and step % 10 == 0) or (step < 1000 and step % 100 == 0) or step % 1000 == 0:
 				self.generate_images(self.generator, example_input, example_target, step)
@@ -387,18 +378,17 @@ class PixToPix():
 			gen_l1_loss_list.append(float(gen_l1_loss))
 			disc_loss_list.append(float(disc_loss))
 			if step % (STEP_INTERVAL // 10) == 0:
-				self.model_data[GanDataKey.gen_total_loss].append(statistics.mean(gen_total_loss_list))
-				self.model_data[GanDataKey.gen_gan_loss].append(statistics.mean(gen_gan_loss_list))
-				self.model_data[GanDataKey.gen_l1_loss].append(statistics.mean(gen_l1_loss_list))
-				self.model_data[GanDataKey.disc_loss].append(statistics.mean(disc_loss_list))
+				self.model_data[define.GanDataKey.gen_total_loss].append(statistics.mean(gen_total_loss_list))
+				self.model_data[define.GanDataKey.gen_gan_loss].append(statistics.mean(gen_gan_loss_list))
+				self.model_data[define.GanDataKey.gen_l1_loss].append(statistics.mean(gen_l1_loss_list))
+				self.model_data[define.GanDataKey.disc_loss].append(statistics.mean(disc_loss_list))
 				gen_total_loss_list.clear()
 				gen_gan_loss_list.clear()
 				gen_l1_loss_list.clear()
 				disc_loss_list.clear()
 
 			# 訓練のステップ
-			if (step + 1) % 10 == 0:
-				print(".", end="", flush=True)
+			progbar.update(int(step) % STEP_INTERVAL + 1)
 
 			# 10kステップごとにチェックポイントを保存する
 			if (step + 1) % 10000 == 0:
@@ -423,25 +413,25 @@ class PixToPix():
 		fig = plt.figure(figsize=(6.4 * 2, 4.8 * 2))
 		fig.suptitle("Learning history")
 		ax = fig.add_subplot(2, 2, 1)
-		ax.plot(self.model_data[GanDataKey.disc_loss])
+		ax.plot(self.model_data[define.GanDataKey.disc_loss])
 		ax.set_title("Disc loss")
 		ax.set_ylabel("Loss")
 		ax.set_xlabel("Epoch")
 
 		ax = fig.add_subplot(2, 2, 2)
-		ax.plot(self.model_data[GanDataKey.gen_gan_loss])
+		ax.plot(self.model_data[define.GanDataKey.gen_gan_loss])
 		ax.set_title("Gen gan loss")
 		ax.set_ylabel("Loss")
 		ax.set_xlabel("Epoch")
 
 		ax = fig.add_subplot(2, 2, 3)
-		ax.plot(self.model_data[GanDataKey.gen_l1_loss])
+		ax.plot(self.model_data[define.GanDataKey.gen_l1_loss])
 		ax.set_title("Gen l1 loss")
 		ax.set_ylabel("Loss")
 		ax.set_xlabel("Epoch")
 
 		ax = fig.add_subplot(2, 2, 4)
-		ax.plot(self.model_data[GanDataKey.gen_total_loss])
+		ax.plot(self.model_data[define.GanDataKey.gen_total_loss])
 		ax.set_title("Gen total loss")
 		ax.set_ylabel("Loss")
 		ax.set_xlabel("Epoch")

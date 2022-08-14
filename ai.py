@@ -12,39 +12,13 @@ import pandas
 import resnet_rs
 import tensorflow as tf
 
+import define
 import tf_callback
 
 __version__ = "1.1.0"
 MODEL_DIR = "./models"
 MODEL_FILE = "model"
 RANDOM_SEED = 54
-
-class ModelType(str, enum.Enum):
-	unknown = "unknown"
-	vgg16_512 = "vgg16_512"
-	resnet_rs152_512x2 = "resnet_rs152_512x2"
-	resnet_rs152_512x2_regr = "resnet_rs152_512x2_regr"
-
-	pix2pix = "pix2pix"
-
-class DataKey(str, enum.Enum):
-	version = "version"
-	model = "model"
-	ai_type = "ai_type"
-	trainable = "trainable"
-	class_num = "class_num"
-	class_indices = "class_indices"
-	train_image_num = "train_image_num"
-	accuracy = "accuracy"
-	val_accuracy = "val_accuracy"
-	loss = "loss"
-	val_loss = "val_loss"
-
-class AiType(str, enum.Enum):
-	categorical = "categorical"
-	regression = "regression"
-
-	gan = "genera_tive_adversarial_networks"
 	
 # モデルが定義されていなければ実行できない関数のデコレーター
 def model_required(func):
@@ -56,9 +30,9 @@ def model_required(func):
 	return wrapper
 
 class Ai(metaclass = abc.ABCMeta):
-	MODEL_DATA_VERSION = 5
+	MODEL_DATA_VERSION = 6
 
-	def __init__(self, ai_type: AiType, model_name: str):
+	def __init__(self, ai_type: define.AiType, model_name: str):
 		self.model = None
 		self.model_data = None
 		self.model_name = model_name
@@ -87,10 +61,10 @@ class Ai(metaclass = abc.ABCMeta):
 		return image
 
 	# ノーマライズが必要かどうかを取得する
-	def get_normalize_flag(self, model_type: ModelType = ModelType.unknown) -> bool:
+	def get_normalize_flag(self, model_type: define.ModelType = define.ModelType.unknown) -> bool:
 		normalize = True
-		no_normalize_model = [ModelType.vgg16_512]
-		if (self.model_data is not None and self.model_data[DataKey.model] in no_normalize_model) or model_type in no_normalize_model:
+		no_normalize_model = [define.ModelType.vgg16_512]
+		if (self.model_data is not None and self.model_data[define.AiDataKey.model] in no_normalize_model) or model_type in no_normalize_model:
 			normalize = False
 		return normalize
 
@@ -121,28 +95,30 @@ class Ai(metaclass = abc.ABCMeta):
 		"""データセットに含まれるクラスごとの画像の数を取得する"""
 
 	# ディープラーニングを開始する
-	def train_model(self, dataset_path: str, epochs: int = 6, batch_size: int = 32, model_type: ModelType = ModelType.unknown, trainable: bool = False) -> dict:
+	def train_model(self, dataset_path: str, epochs: int = 6, batch_size: int = 32, model_type: define.ModelType = define.ModelType.unknown, trainable: bool = False) -> dict:
 		train_ds, val_ds = self.create_dataset(dataset_path, batch_size, normalize=self.get_normalize_flag(model_type))
 
 		class_image_num, class_indices = self.count_image_from_dataset(train_ds)
+		val_class_image_num, val_class_indices = self.count_image_from_dataset(val_ds)
 
 		if self.model is None:
-			if model_type == ModelType.unknown:
+			if model_type == define.ModelType.unknown:
 				nlib3.print_error_log("モデルを新規作成する場合はモデルタイプを指定してください")
 				return None
 			self.model_data = {}
-			self.model_data[DataKey.model] = model_type			# モデル作成時のみモデルタイプを登録する
+			self.model_data[define.AiDataKey.model] = model_type			# モデル作成時のみモデルタイプを登録する
 			self.model = self.create_model(model_type, len(class_indices), trainable)
 
 		timetaken = tf_callback.TimeCallback()
 		history = self.model.fit(train_ds, validation_data=val_ds, epochs=epochs, callbacks=[timetaken])
 		self.model.save_weights(Path(MODEL_DIR, self.model_name, MODEL_FILE))
-		self.model_data[DataKey.version] = self.MODEL_DATA_VERSION
-		self.model_data[DataKey.ai_type] = self.ai_type
-		self.model_data[DataKey.trainable] = trainable
-		self.model_data[DataKey.class_num] = len(class_indices)
-		self.model_data[DataKey.class_indices] = class_indices
-		self.model_data[DataKey.train_image_num] = class_image_num
+		self.model_data[define.AiDataKey.version] = self.MODEL_DATA_VERSION
+		self.model_data[define.AiDataKey.ai_type] = self.ai_type
+		self.model_data[define.AiDataKey.trainable] = trainable
+		self.model_data[define.AiDataKey.class_num] = len(class_indices)
+		self.model_data[define.AiDataKey.class_indices] = class_indices
+		self.model_data[define.AiDataKey.train_image_num] = class_image_num
+		self.model_data[define.AiDataKey.test_image_num] = val_class_image_num
 
 		for k, v in history.history.items():
 			if k in self.model_data:
@@ -152,7 +128,7 @@ class Ai(metaclass = abc.ABCMeta):
 
 		nlib3.save_json(Path(MODEL_DIR, self.model_name, f"{MODEL_FILE}.json"), self.model_data)
 		self.show_history()
-		self.show_model_test(dataset_path)
+		self.show_model_test(dataset_path, max_loop_num=5)
 		return self.model_data.copy()
 
 	# モデルの学習履歴をグラフで表示する
@@ -160,16 +136,16 @@ class Ai(metaclass = abc.ABCMeta):
 		fig = plt.figure(figsize=(6.4, 4.8 * 2))
 		fig.suptitle("Learning history")
 		ax = fig.add_subplot(2, 1, 1)
-		ax.plot(self.model_data[DataKey.accuracy])
-		ax.plot(self.model_data[DataKey.val_accuracy])
+		ax.plot(self.model_data[define.AiDataKey.accuracy])
+		ax.plot(self.model_data[define.AiDataKey.val_accuracy])
 		ax.set_title("Model accuracy")
 		ax.set_ylabel("Accuracy")
 		ax.set_xlabel("Epoch")
 		ax.legend(["Train", "Test"], loc="upper left")
 
 		ax = fig.add_subplot(2, 1, 2)
-		ax.plot(self.model_data[DataKey.loss])
-		ax.plot(self.model_data[DataKey.val_loss])
+		ax.plot(self.model_data[define.AiDataKey.loss])
+		ax.plot(self.model_data[define.AiDataKey.val_loss])
 		ax.set_title("Model loss")
 		ax.set_ylabel("Loss")
 		ax.set_xlabel("Epoch")
@@ -182,7 +158,7 @@ class Ai(metaclass = abc.ABCMeta):
 	def load_model(self):
 		if self.model is None:
 			self.model_data = nlib3.load_json(Path(MODEL_DIR, self.model_name, f"{MODEL_FILE}.json"))
-			self.model = self.create_model(self.model_data[DataKey.model], self.model_data[DataKey.class_num], self.model_data[DataKey.trainable])
+			self.model = self.create_model(self.model_data[define.AiDataKey.model], self.model_data[define.AiDataKey.class_num], self.model_data[define.AiDataKey.trainable])
 			self.model.load_weights(Path(MODEL_DIR, self.model_name, MODEL_FILE))
 		else:
 			nlib3.print_error_log("既に初期化されています")
@@ -201,15 +177,15 @@ class Ai(metaclass = abc.ABCMeta):
 
 class ImageClassificationAi(Ai):
 	def __init__(self, *args, **kwargs):
-		super().__init__(AiType.categorical, *args, **kwargs)
+		super().__init__(define.AiType.categorical, *args, **kwargs)
 		return
 
 	# 画像分類モデルを作成する
-	def create_model(self, model_type: ModelType, num_classes: int, trainable: bool = False):
+	def create_model(self, model_type: define.ModelType, num_classes: int, trainable: bool = False):
 		match model_type:
-			case ModelType.vgg16_512:
+			case define.ModelType.vgg16_512:
 				return self.create_model_vgg16(num_classes, trainable)
-			case ModelType.resnet_rs152_512x2:
+			case define.ModelType.resnet_rs152_512x2:
 				return self.create_model_resnet_rs(num_classes, trainable)
 		return None
 
@@ -314,7 +290,7 @@ class ImageClassificationAi(Ai):
 	# モデルから返された結果を分類のクラス名に変換する
 	@model_required
 	def result_to_classname(self, result):
-		class_name_list = list(self.model_data[DataKey.class_indices].keys())
+		class_name_list = list(self.model_data[define.AiDataKey.class_indices].keys())
 		return class_name_list[list(result).index(max(result))]
 
 	# テストデータの推論結果を表示する
@@ -325,7 +301,7 @@ class ImageClassificationAi(Ai):
 			test_ds = train_ds
 
 		for i, row in enumerate(test_ds):
-			class_name_list = list(self.model_data[DataKey.class_indices].keys())
+			class_name_list = list(self.model_data[define.AiDataKey.class_indices].keys())
 			fig = plt.figure(figsize=(16, 9))
 			for j in range(len(row[0])):			# 最大12の画像数
 				result = self.model(tf.expand_dims(row[0][j], 0))[0]
@@ -364,13 +340,13 @@ class ImageClassificationAi(Ai):
 
 class ImageRegressionAi(Ai):
 	def __init__(self, *args, **kwargs):
-		super().__init__(AiType.regression, *args, **kwargs)
+		super().__init__(define.AiType.regression, *args, **kwargs)
 		return
 
 	# 画像分類モデルを作成する
-	def create_model(self, model_type: ModelType, num_classes: int, trainable: bool = False):
+	def create_model(self, model_type: define.ModelType, num_classes: int, trainable: bool = False):
 		match model_type:
-			case ModelType.resnet_rs152_512x2_regr:
+			case define.ModelType.resnet_rs152_512x2_regr:
 				return self.create_model_resnet_rs_regr(trainable)
 		return None
 
