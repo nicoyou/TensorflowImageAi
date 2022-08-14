@@ -1,14 +1,24 @@
-ver.5
+# categorical, regression
+v5
 データに trainable を追加
 
-ver.4
+v4
 データに ai_type を追加
 
-ver.3
+v3
 学習に使用した訓練データ数を追加
 
-ver.2
+v2
 学習にかかった時間を追加
 
-ver.1
+v1
+初期バージョン
+
+
+
+# Gan Model
+v2
+学習に使用したデータ数を追加
+
+v1
 初期バージョン

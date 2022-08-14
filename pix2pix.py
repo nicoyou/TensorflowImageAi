@@ -22,6 +22,8 @@ class GanDataKey(str, enum.Enum):
 	gen_gan_loss = "gen_gan_loss"
 	gen_l1_loss = "gen_l1_loss"
 	disc_loss = "disc_loss"
+	train_image_num = "train_image_num"
+	test_image_num = "test_image_num"
 
 class PixToPixModel():
 	OUTPUT_CHANNELS = 3
@@ -69,7 +71,6 @@ class PixToPixModel():
 			self.downsample(512, 4),								# (batch_size, 2, 2, 512)
 			self.downsample(512, 4),								# (batch_size, 1, 1, 512)
 		]
-
 		up_stack = [
 			self.upsample(512, 4, apply_dropout=True),		# (batch_size, 2, 2, 1024)
 			self.upsample(512, 4, apply_dropout=True),		# (batch_size, 4, 4, 1024)
@@ -144,7 +145,7 @@ class PixToPix():
 	def __init__(self, ai_name) -> None:
 		self.ai_name = ai_name
 		self.model_data = {}
-		self.model_data[ai.DataKey.version] = 1
+		self.model_data[ai.DataKey.version] = 2
 		self.model_data[ai.DataKey.ai_type] = ai.AiType.gan
 		self.model_data[ai.DataKey.model] = ai.ModelType.pix2pix
 		self.model_data[ai.DataKey.trainable] = True
@@ -153,6 +154,8 @@ class PixToPix():
 		self.model_data[GanDataKey.gen_gan_loss] = []
 		self.model_data[GanDataKey.gen_l1_loss] = []
 		self.model_data[GanDataKey.disc_loss] = []
+		self.model_data[GanDataKey.train_image_num] = 0
+		self.model_data[GanDataKey.test_image_num] = 0
 
 		self.loss_object = tf.keras.losses.BinaryCrossentropy(from_logits=True)
 
@@ -353,11 +356,13 @@ class PixToPix():
 
 	# 学習を行う
 	def fit(self, train_ds, test_ds, steps):
+		STEP_INTERVAL = 500
+		self.model_data[GanDataKey.train_image_num] = len(train_ds)
+		self.model_data[GanDataKey.test_image_num] = len(test_ds)
+
 		example_input, example_target = next(iter(test_ds.take(1)))
 		start = time.time()
 		os.makedirs(self.MODEL_DIR / self.ai_name, exist_ok=True)
-
-		STEP_INTERVAL = 500
 
 		gen_total_loss_list = []
 		gen_gan_loss_list = []
@@ -382,10 +387,10 @@ class PixToPix():
 			gen_l1_loss_list.append(float(gen_l1_loss))
 			disc_loss_list.append(float(disc_loss))
 			if step % (STEP_INTERVAL // 10) == 0:
-				self.model_data["gen_total_loss"].append(statistics.mean(gen_total_loss_list))
-				self.model_data["gen_gan_loss"].append(statistics.mean(gen_gan_loss_list))
-				self.model_data["gen_l1_loss"].append(statistics.mean(gen_l1_loss_list))
-				self.model_data["disc_loss"].append(statistics.mean(disc_loss_list))
+				self.model_data[GanDataKey.gen_total_loss].append(statistics.mean(gen_total_loss_list))
+				self.model_data[GanDataKey.gen_gan_loss].append(statistics.mean(gen_gan_loss_list))
+				self.model_data[GanDataKey.gen_l1_loss].append(statistics.mean(gen_l1_loss_list))
+				self.model_data[GanDataKey.disc_loss].append(statistics.mean(disc_loss_list))
 				gen_total_loss_list.clear()
 				gen_gan_loss_list.clear()
 				gen_l1_loss_list.clear()
