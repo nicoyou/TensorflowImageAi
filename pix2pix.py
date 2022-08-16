@@ -1,5 +1,4 @@
 import datetime
-import enum
 import os
 import statistics
 import time
@@ -8,13 +7,15 @@ from pathlib import Path
 os.environ["PATH"] += ";" + str(Path(__file__).parent / "dll")			# 環境変数に一時的に dll のパスを追加する
 os.environ["XLA_FLAGS"] = f"--xla_gpu_cuda_data_dir={str(Path(__file__).parent / 'CUDA')}"
 
+import matplotlib
 import nlib3
+import numpy as np
+import PIL
 import tensorflow as tf
 from matplotlib import pyplot as plt
-import matplotlib
 
-import ai
 import define
+import make_pix2pix_image
 
 matplotlib.use("Agg")			# メモリリーク対策
 
@@ -128,10 +129,9 @@ class PixToPix():
 	MODEL_FILE_NAME = Path("model")
 	JSON_FILE_NAME = Path("model.json")
 	
-	BUFFER_SIZE = 400				# データセットを構成している画像の枚数
-	BATCH_SIZE = 1					# 元の pix2pix 実験では、バッチ サイズ 1 のほうが U-Net でより良い結果が出る
-	IMG_WIDTH = 256					# 画像サイズ
-	IMG_HEIGHT = 256
+	BUFFER_SIZE = 400								# データセットを構成している画像の枚数
+	BATCH_SIZE = 1									# 元の pix2pix 実験では、バッチ サイズ 1 のほうが U-Net でより良い結果が出る
+	IMAGE_SIZE = nlib3.Vector2(256, 256)			# 画像サイズ
 
 	LAMBDA = 100
 
@@ -178,6 +178,63 @@ class PixToPix():
 		self.summary_writer = tf.summary.create_file_writer(str(self.LOG_DIR / "fit" / datetime.datetime.now().strftime("%Y%m%d-%H%M%S")))
 		return
 
+	# １枚の画像を読み込む
+	def load_one_image(self, file_path):
+		pil_img = PIL.Image.open(file_path)
+		w, h = pil_img.size
+		pil_img = make_pix2pix_image.expand_to_square_pad(pil_img)
+		pil_img = pil_img.resize(self.IMAGE_SIZE)
+		tf_image = tf.keras.preprocessing.image.img_to_array(pil_img)
+		tf_image = (tf_image / 127.5) - 1
+		return tf.expand_dims(tf_image, 0)
+
+	# 推論を行う
+	def inference(self, input_img):
+		return self.generator(input_img, training=True)
+
+	# 指定された画像の推論結果を表示する
+	def show_inference(self, file_path, out_path = None):
+		input_img = self.load_one_image(file_path)
+		prediction = self.inference(input_img)
+		plt.figure(figsize=(12, 6))
+
+		display_list = [input_img[0], prediction[0]]
+		title = ["Input Image", "Predicted Image"]
+
+		for i in range(2):
+			plt.subplot(1, 2, i+1)
+			plt.title(title[i])
+			# プロットする [0, 1] 範囲のピクセル値を取得する
+			plt.imshow(display_list[i] * 0.5 + 0.5)
+			plt.axis("off")
+
+		if out_path is not None:
+			plt.savefig(out_path)
+
+		plt.show()
+		plt.clf()		# 図形のクリア
+		plt.close()		# windowを閉じる
+		return
+		
+	# 指定された画像をAIで変換して保存する
+	def inference_image(self, input_image, out_image):
+		pil_image = PIL.Image.open(input_image)
+		tf_image = self.load_one_image(input_image)
+		tf_image = self.inference(tf_image)
+		tf_image = (tf_image[0] + 1) * 127.5
+
+		result_image = PIL.Image.fromarray(tf_image.numpy().astype(np.uint8))
+
+		original_size = nlib3.Vector2(pil_image.size[0], pil_image.size[1])
+		out_size = ((original_size / original_size.max()) * self.IMAGE_SIZE).floor()
+		out_pad_size = ((self.IMAGE_SIZE - out_size) / 2).floor()
+
+		if original_size.x != original_size.y:
+			result_image = result_image.crop((*out_pad_size, *(self.IMAGE_SIZE - out_pad_size)))
+
+		result_image.save(out_image)
+		return
+
 	# 画像ファイルを読み込んで、２つの画像テンソルに分解する
 	def load(self, image_file):
 		# 画像ファイルを読み取って uint8 テンソルにデコードする
@@ -205,7 +262,7 @@ class PixToPix():
 	def random_crop(self, input_image, real_image):
 		stacked_image = tf.stack([input_image, real_image], axis=0)
 		cropped_image = tf.image.random_crop(
-			stacked_image, size=[2, self.IMG_HEIGHT, self.IMG_WIDTH, 3])
+			stacked_image, size=[2, self.IMAGE_SIZE.y, self.IMAGE_SIZE.x, 3])
 
 		return cropped_image[0], cropped_image[1]
 
@@ -258,7 +315,7 @@ class PixToPix():
 	# テスト用の画像を読み込む
 	def load_image_test(self, image_file):
 		input_image, real_image = self.load(image_file)
-		input_image, real_image = self.resize(input_image, real_image, self.IMG_HEIGHT, self.IMG_WIDTH)
+		input_image, real_image = self.resize(input_image, real_image, self.IMAGE_SIZE.y, self.IMAGE_SIZE.x)
 		input_image, real_image = self.normalize(input_image, real_image)
 
 		return input_image, real_image
@@ -443,9 +500,9 @@ class PixToPix():
 		return
 
 if __name__ == "__main__":
-	p2p = PixToPix("pix2pix_naked_girl_256")
-	train_dataset, test_dataset = p2p.load_dataset("dataset/out_p2p")
-	p2p.load_model()
-	p2p.show_history()
-	p2p.show_test(test_dataset)
-	# p2p.fit(train_dataset, test_dataset, steps=50000000)
+	p2p = PixToPix("pix2pix_model_name")
+	train_dataset, test_dataset = p2p.load_dataset("dataset/p2p")
+	# p2p.load_model()
+	# p2p.show_history()
+	# p2p.show_test(test_dataset)
+	p2p.fit(train_dataset, test_dataset, steps=50000000)
