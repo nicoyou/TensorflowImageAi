@@ -4,8 +4,9 @@ import statistics
 import time
 from pathlib import Path
 
-os.environ["PATH"] += ";" + str(Path(__file__).parent / "dll")			# 環境変数に一時的に dll のパスを追加する
-os.environ["XLA_FLAGS"] = f"--xla_gpu_cuda_data_dir={str(Path(__file__).parent / 'CUDA')}"
+CURRENT_DIR = Path(__file__).parent
+os.environ["PATH"] += ";" + str(CURRENT_DIR / "dll")			# 環境変数に一時的に dll のパスを追加する
+os.environ["XLA_FLAGS"] = f"--xla_gpu_cuda_data_dir={str(CURRENT_DIR / 'CUDA')}"
 
 import matplotlib
 import nlib3
@@ -124,8 +125,8 @@ class PixToPixModel():
 		return tf.keras.Model(inputs=[inp, tar], outputs=last)
 
 class PixToPix():
-	MODEL_DIR = Path("./models")
-	LOG_DIR = Path("./logs")
+	MODEL_DIR = CURRENT_DIR / "models"
+	LOG_DIR = CURRENT_DIR / "logs"
 	MODEL_FILE_NAME = Path("model")
 	JSON_FILE_NAME = Path("model.json")
 	

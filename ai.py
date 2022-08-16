@@ -1,9 +1,9 @@
 import abc
-import enum
 import os
 from pathlib import Path
 
-os.environ["PATH"] += ";" + str(Path(__file__).parent / "dll")			# 環境変数に一時的に dll のパスを追加する
+CURRENT_DIR = Path(__file__).parent
+os.environ["PATH"] += ";" + str(CURRENT_DIR / "dll")			# 環境変数に一時的に dll のパスを追加する
 
 import matplotlib.pyplot as plt
 import nlib3
@@ -16,7 +16,7 @@ import define
 import tf_callback
 
 __version__ = "1.1.0"
-MODEL_DIR = "./models"
+MODEL_DIR = CURRENT_DIR / "models"
 MODEL_FILE = "model"
 RANDOM_SEED = 54
 	
@@ -111,7 +111,7 @@ class Ai(metaclass = abc.ABCMeta):
 
 		timetaken = tf_callback.TimeCallback()
 		history = self.model.fit(train_ds, validation_data=val_ds, epochs=epochs, callbacks=[timetaken])
-		self.model.save_weights(Path(MODEL_DIR, self.model_name, MODEL_FILE))
+		self.model.save_weights(MODEL_DIR / self.model_name / MODEL_FILE)
 		self.model_data[define.AiDataKey.version] = self.MODEL_DATA_VERSION
 		self.model_data[define.AiDataKey.ai_type] = self.ai_type
 		self.model_data[define.AiDataKey.trainable] = trainable
@@ -126,7 +126,7 @@ class Ai(metaclass = abc.ABCMeta):
 			else:
 				self.model_data[k] = v
 
-		nlib3.save_json(Path(MODEL_DIR, self.model_name, f"{MODEL_FILE}.json"), self.model_data)
+		nlib3.save_json(MODEL_DIR / self.model_name / f"{MODEL_FILE}.json", self.model_data)
 		self.show_history()
 		self.show_model_test(dataset_path, max_loop_num=5)
 		return self.model_data.copy()
@@ -157,9 +157,9 @@ class Ai(metaclass = abc.ABCMeta):
 	# 学習済みのニューラルネットワークを読み込む
 	def load_model(self):
 		if self.model is None:
-			self.model_data = nlib3.load_json(Path(MODEL_DIR, self.model_name, f"{MODEL_FILE}.json"))
+			self.model_data = nlib3.load_json(MODEL_DIR / self.model_name / f"{MODEL_FILE}.json")
 			self.model = self.create_model(self.model_data[define.AiDataKey.model], self.model_data[define.AiDataKey.class_num], self.model_data[define.AiDataKey.trainable])
-			self.model.load_weights(Path(MODEL_DIR, self.model_name, MODEL_FILE))
+			self.model.load_weights(MODEL_DIR / self.model_name / MODEL_FILE)
 		else:
 			nlib3.print_error_log("既に初期化されています")
 		return
