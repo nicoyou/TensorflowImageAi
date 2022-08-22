@@ -277,14 +277,10 @@ class PixToPix():
 	# 訓練用データの前処理を行う
 	@tf.function()
 	def random_jitter(self, input_image, real_image):
-		# 286x286 にリサイズする
 		input_image, real_image = self.resize(input_image, real_image, 286, 286)
+		input_image, real_image = self.random_crop(input_image, real_image)			# ランダムにトリミングして元のサイズに戻す
 
-		# ランダムにトリミングして 256x256 に戻す
-		input_image, real_image = self.random_crop(input_image, real_image)
-
-		if tf.random.uniform(()) > 0.5:
-			# ランダムにミラーリングする
+		if tf.random.uniform(()) > 0.5:		# ランダムにミラーリングする
 			input_image = tf.image.flip_left_right(input_image)
 			real_image = tf.image.flip_left_right(real_image)
 
@@ -390,15 +386,11 @@ class PixToPix():
 			gen_total_loss, gen_gan_loss, gen_l1_loss = self.generator_loss(disc_generated_output, gen_output, target)
 			disc_loss = self.discriminator_loss(disc_real_output, disc_generated_output)
 
-		generator_gradients = gen_tape.gradient(gen_total_loss,
-												self.generator.trainable_variables)
-		discriminator_gradients = disc_tape.gradient(disc_loss,
-												self.discriminator.trainable_variables)
+		generator_gradients = gen_tape.gradient(gen_total_loss, self.generator.trainable_variables)
+		discriminator_gradients = disc_tape.gradient(disc_loss, self.discriminator.trainable_variables)
 
-		self.generator_optimizer.apply_gradients(zip(generator_gradients,
-												self.generator.trainable_variables))
-		self.discriminator_optimizer.apply_gradients(zip(discriminator_gradients,
-												self.discriminator.trainable_variables))
+		self.generator_optimizer.apply_gradients(zip(generator_gradients, self.generator.trainable_variables))
+		self.discriminator_optimizer.apply_gradients(zip(discriminator_gradients, self.discriminator.trainable_variables))
 
 		with self.summary_writer.as_default():
 			tf.summary.scalar("gen_total_loss", gen_total_loss, step=step // 1000)

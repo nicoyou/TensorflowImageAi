@@ -1,6 +1,7 @@
 import abc
 import os
 from pathlib import Path
+from typing import Any, Callable, Final
 
 CURRENT_DIR = Path(__file__).parent
 os.environ["PATH"] += ";" + str(CURRENT_DIR / "dll")			# 環境変数に一時的に dll のパスを追加する
@@ -15,13 +16,14 @@ import tensorflow as tf
 import define
 import tf_callback
 
-__version__ = "1.1.0"
-MODEL_DIR = CURRENT_DIR / "models"
+__version__: Final = "1.1.0"
+MODEL_DIR: Final = CURRENT_DIR / "models"
 MODEL_FILE = "model"
 RANDOM_SEED = 54
 	
-# モデルが定義されていなければ実行できない関数のデコレーター
-def model_required(func):
+def model_required(func: Callable) -> Callable:
+	"""モデルが定義されている場合のみ実行するデコレーター
+	"""
 	def wrapper(self, *args, **kwargs):
 		if self.model is None:
 			nlib3.print_error_log("モデルが初期化されていません")
@@ -30,9 +32,17 @@ def model_required(func):
 	return wrapper
 
 class Ai(metaclass = abc.ABCMeta):
-	MODEL_DATA_VERSION = 6
+	"""画像分類系AIの根底クラス
+	"""
+	MODEL_DATA_VERSION: Final = 6
 
-	def __init__(self, ai_type: define.AiType, model_name: str):
+	def __init__(self, ai_type: define.AiType, model_name: str) -> None:
+		"""管理するAIの初期設定を行う
+
+		Args:
+			ai_type: 管理するAIの種類
+			model_name: 管理するAIの名前 ( 保存、読み込み用 )
+		"""
 		self.model = None
 		self.model_data = None
 		self.model_name = model_name
@@ -41,8 +51,16 @@ class Ai(metaclass = abc.ABCMeta):
 		self.img_width = 224
 		return
 
-	# 画像を読み込んでテンソルに変換する
-	def preprocess_image(self, img_path, normalize = False):
+	def preprocess_image(self, img_path: Path | str, normalize: bool = False) -> tf.Tensor:
+		"""画像を読み込んでテンソルに変換する
+
+		Args:
+			img_path: 読み込む画像のファイルパス
+			normalize: ０～１の範囲に正規化する
+
+		Returns:
+			画像のテンソル
+		"""
 		img_raw = tf.io.read_file(str(img_path))
 		image = tf.image.decode_image(img_raw, channels=3)
 		image = tf.image.resize(image, (self.img_height, self.img_width))
@@ -51,8 +69,16 @@ class Ai(metaclass = abc.ABCMeta):
 		image = tf.expand_dims(image, 0)		# 次元を一つ増やしてバッチ化する
 		return image
 
-	# pillowで読み込んだ画像をテンソルに変換する
-	def pillow_image_to_tf_image(self, image, normalize = False):
+	def pillow_image_to_tf_image(self, image: Any, normalize: bool = False) -> tf.Tensor:
+		"""pillowで読み込んだ画像をテンソルに変換する
+
+		Args:
+			image: pillowイメージ
+			normalize: ０～１の範囲に正規化する
+
+		Returns:
+			画像のテンソル
+		"""
 		tf.keras.preprocessing.image.img_to_array(image)
 		image = tf.image.resize(image, (self.img_height, self.img_width))
 		if normalize:
@@ -60,16 +86,32 @@ class Ai(metaclass = abc.ABCMeta):
 		image = tf.expand_dims(image, 0)		# 次元を一つ増やしてバッチ化する
 		return image
 
-	# ノーマライズが必要かどうかを取得する
 	def get_normalize_flag(self, model_type: define.ModelType = define.ModelType.unknown) -> bool:
+		"""画像の前処理として正規化を実行するかを判断する
+
+		Args:
+			model_type:
+				正規化が必要かどうかを確認するモデル
+				すでにクラスがモデルデータを保持している場合は不要
+
+		Returns:
+			正規化が必要かどうか
+		"""
 		normalize = True
 		no_normalize_model = [define.ModelType.vgg16_512]
 		if (self.model_data is not None and self.model_data[define.AiDataKey.model] in no_normalize_model) or model_type in no_normalize_model:
 			normalize = False
 		return normalize
 
-	# データセットの前処理を行うジェネレーターを作成する
-	def create_generator(self, normalize: bool):
+	def create_generator(self, normalize: bool) -> tf.keras.preprocessing.image.ImageDataGenerator:
+		"""データセットの前処理を行うジェネレーターを作成する
+
+		Args:
+			normalize: ０～１の間に正規化するかどうか
+
+		Returns:
+			ジェネレーター
+		"""
 		params = {
 			"horizontal_flip": True,			# 左右を反転する
 			"rotation_range": 20,				# 度数法で最大変化時の角度を指定
@@ -94,8 +136,24 @@ class Ai(metaclass = abc.ABCMeta):
 	def count_image_from_dataset():
 		"""データセットに含まれるクラスごとの画像の数を取得する"""
 
-	# ディープラーニングを開始する
 	def train_model(self, dataset_path: str, epochs: int = 6, batch_size: int = 32, model_type: define.ModelType = define.ModelType.unknown, trainable: bool = False) -> dict:
+		"""ディープラーニングを実行する
+
+		Args:
+			dataset_path: 学習に使用するデータセットのファイルパス
+			epochs: 学習を行うエポック数. Defaults to 6.
+			batch_size: バッチサイズ. Defaults to 32.
+			model_type:
+				学習を行うモデルの種類
+				モデルの新規作成時のみ指定する
+				すでにモデルが読み込まれている場合はこの値は無視される
+			trainable:
+				転移学習を行うときに特徴検出部分を再学習するかどうか
+				すでにモデルが読み込まれている場合はこの値は無視される
+
+		Returns:
+			学習を行ったモデルの情報
+		"""
 		train_ds, val_ds = self.create_dataset(dataset_path, batch_size, normalize=self.get_normalize_flag(model_type))
 
 		class_image_num, class_indices = self.count_image_from_dataset(train_ds)
@@ -107,6 +165,7 @@ class Ai(metaclass = abc.ABCMeta):
 				return None
 			self.model_data = {}
 			self.model_data[define.AiDataKey.model] = model_type			# モデル作成時のみモデルタイプを登録する
+			self.model_data[define.AiDataKey.trainable] = trainable
 			self.model = self.create_model(model_type, len(class_indices), trainable)
 
 		timetaken = tf_callback.TimeCallback()
@@ -114,7 +173,6 @@ class Ai(metaclass = abc.ABCMeta):
 		self.model.save_weights(MODEL_DIR / self.model_name / MODEL_FILE)
 		self.model_data[define.AiDataKey.version] = self.MODEL_DATA_VERSION
 		self.model_data[define.AiDataKey.ai_type] = self.ai_type
-		self.model_data[define.AiDataKey.trainable] = trainable
 		self.model_data[define.AiDataKey.class_num] = len(class_indices)
 		self.model_data[define.AiDataKey.class_indices] = class_indices
 		self.model_data[define.AiDataKey.train_image_num] = class_image_num
@@ -131,8 +189,9 @@ class Ai(metaclass = abc.ABCMeta):
 		self.show_model_test(dataset_path, max_loop_num=5)
 		return self.model_data.copy()
 
-	# モデルの学習履歴をグラフで表示する
-	def show_history(self):
+	def show_history(self) -> None:
+		"""モデルの学習履歴をグラフで表示する
+		"""
 		fig = plt.figure(figsize=(6.4, 4.8 * 2))
 		fig.suptitle("Learning history")
 		ax = fig.add_subplot(2, 1, 1)
@@ -154,8 +213,9 @@ class Ai(metaclass = abc.ABCMeta):
 		plt.show()
 		return
 
-	# 学習済みのニューラルネットワークを読み込む
-	def load_model(self):
+	def load_model(self) -> None:
+		"""学習済みニューラルネットワークの重みを読み込む
+		"""
 		if self.model is None:
 			self.model_data = nlib3.load_json(MODEL_DIR / self.model_name / f"{MODEL_FILE}.json")
 			self.model = self.create_model(self.model_data[define.AiDataKey.model], self.model_data[define.AiDataKey.class_num], self.model_data[define.AiDataKey.trainable])
@@ -176,6 +236,7 @@ class Ai(metaclass = abc.ABCMeta):
 
 
 class ImageClassificationAi(Ai):
+	"""画像分類AI"""
 	def __init__(self, *args, **kwargs):
 		super().__init__(define.AiType.categorical, *args, **kwargs)
 		return
@@ -338,12 +399,13 @@ class ImageClassificationAi(Ai):
 				break
 		return result_list
 
+
 class ImageRegressionAi(Ai):
+	"""画像の回帰分析AI"""
 	def __init__(self, *args, **kwargs):
 		super().__init__(define.AiType.regression, *args, **kwargs)
 		return
 
-	# 画像分類モデルを作成する
 	def create_model(self, model_type: define.ModelType, num_classes: int, trainable: bool = False):
 		match model_type:
 			case define.ModelType.resnet_rs152_512x2_regr:
