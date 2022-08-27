@@ -3,6 +3,7 @@ import os
 import statistics
 import time
 from pathlib import Path
+from typing import Any
 
 CURRENT_DIR = Path(__file__).parent
 os.environ["PATH"] += ";" + str(CURRENT_DIR / "dll")			# 環境変数に一時的に dll のパスを追加する
@@ -23,8 +24,9 @@ matplotlib.use("Agg")			# メモリリーク対策
 class PixToPixModel():
 	OUTPUT_CHANNELS = 3
 
-	# ダウンサンプラー
-	def downsample(self, filters, size, apply_batchnorm=True):
+	def downsample(self, filters: int, size: int, apply_batchnorm: bool = True) -> Any:
+		"""ダウンサンプラー
+		"""
 		initializer = tf.random_normal_initializer(0., 0.02)
 
 		result = tf.keras.Sequential()
@@ -34,11 +36,11 @@ class PixToPixModel():
 			result.add(tf.keras.layers.BatchNormalization())
 
 		result.add(tf.keras.layers.LeakyReLU())
-
 		return result
 
-	# アップサンプラー
-	def upsample(self, filters, size, apply_dropout=False):
+	def upsample(self, filters: int, size: int, apply_dropout: bool = False) -> Any:
+		"""アップサンプラー
+		"""
 		initializer = tf.random_normal_initializer(0., 0.02)
 
 		result = tf.keras.Sequential()
@@ -52,8 +54,12 @@ class PixToPixModel():
 		result.add(tf.keras.layers.ReLU())
 		return result
 
-	# ジェネレーター
-	def get_generator(self):
+	def get_generator(self) -> Any:
+		"""ジェネレーターのモデルを取得する
+
+		Returns:
+			ジェネレーターのモデル
+		"""
 		inputs = tf.keras.layers.Input(shape=[256, 256, 3])
 
 		down_stack = [
@@ -97,8 +103,12 @@ class PixToPixModel():
 		x = last(x)
 		return tf.keras.Model(inputs=inputs, outputs=x)
 
-	# 弁別器
-	def get_discriminator(self):
+	def get_discriminator(self) -> Any:
+		"""弁別器のモデルを取得する
+
+		Returns:
+			弁別器のモデル
+		"""
 		initializer = tf.random_normal_initializer(0., 0.02)
 
 		inp = tf.keras.layers.Input(shape=[256, 256, 3], name="input_image")
@@ -130,13 +140,18 @@ class PixToPix():
 	MODEL_FILE_NAME = Path("model")
 	JSON_FILE_NAME = Path("model.json")
 	
-	BUFFER_SIZE = 400								# データセットを構成している画像の枚数
+	BUFFER_SIZE = 512								# データセットを構成している画像の枚数
 	BATCH_SIZE = 1									# 元の pix2pix 実験では、バッチ サイズ 1 のほうが U-Net でより良い結果が出る
 	IMAGE_SIZE = nlib3.Vector2(256, 256)			# 画像サイズ
 
 	LAMBDA = 100
 
-	def __init__(self, ai_name) -> None:
+	def __init__(self, ai_name: str) -> None:
+		"""pix2pixのモデルを作成する
+
+		Args:
+			ai_name: AIの名前 ( 保存、読み込み用 )
+		"""
 		self.ai_name = ai_name
 		self.model_data = {}
 		self.model_data[define.AiDataKey.version] = 2
@@ -179,8 +194,15 @@ class PixToPix():
 		self.summary_writer = tf.summary.create_file_writer(str(self.LOG_DIR / "fit" / datetime.datetime.now().strftime("%Y%m%d-%H%M%S")))
 		return
 
-	# １枚の画像を読み込む
-	def load_one_image(self, file_path):
+	def load_one_image(self, file_path: str) -> tf.Tensor:
+		"""pix2pix モデルで使用する形式で画像を読み込む
+
+		Args:
+			file_path: 読み込む画像のファイルパス
+
+		Returns:
+			読み込んだ画像のテンソル
+		"""
 		pil_img = PIL.Image.open(file_path)
 		w, h = pil_img.size
 		pil_img = make_pix2pix_image.expand_to_square_pad(pil_img)
@@ -189,12 +211,24 @@ class PixToPix():
 		tf_image = (tf_image / 127.5) - 1
 		return tf.expand_dims(tf_image, 0)
 
-	# 推論を行う
-	def inference(self, input_img):
+	def inference(self, input_img: tf.Tensor) -> tf.Tensor:
+		"""現在保持しているモデルで画像の推論を行う
+
+		Args:
+			input_img: 入力画像データ
+
+		Returns:
+			変換後の画像データ
+		"""
 		return self.generator(input_img, training=True)
 
-	# 指定された画像の推論結果を表示する
-	def show_inference(self, file_path, out_path = None):
+	def show_inference(self, file_path: str, out_path: str = None) -> None:
+		"""指定された画像の推論結果を表示する
+
+		Args:
+			file_path: 入力画像のファイルパス
+			out_path: 入力画像と出力画像の比較画像を出力するファイルパス
+		"""
 		input_img = self.load_one_image(file_path)
 		prediction = self.inference(input_img)
 		plt.figure(figsize=(12, 6))
@@ -217,10 +251,15 @@ class PixToPix():
 		plt.close()		# windowを閉じる
 		return
 		
-	# 指定された画像をAIで変換して保存する
-	def inference_image(self, input_image, out_image):
-		pil_image = PIL.Image.open(input_image)
-		tf_image = self.load_one_image(input_image)
+	def inference_image(self, input_image_path: str, out_image_path: str) -> None:
+		"""指定された画像をAIで変換して保存する
+
+		Args:
+			input_image: 入力画像のファイルパス
+			out_image: 変換後の画像を保存するファイルパス
+		"""
+		pil_image = PIL.Image.open(input_image_path)				# アスペクト比を計算するために読み込む
+		tf_image = self.load_one_image(input_image_path)			# 推論用に読み込む
 		tf_image = self.inference(tf_image)
 		tf_image = (tf_image[0] + 1) * 127.5
 
@@ -233,11 +272,19 @@ class PixToPix():
 		if original_size.x != original_size.y:
 			result_image = result_image.crop((*out_pad_size, *(self.IMAGE_SIZE - out_pad_size)))
 
-		result_image.save(out_image)
+		result_image.save(out_image_path)
 		return
 
-	# 画像ファイルを読み込んで、２つの画像テンソルに分解する
-	def load(self, image_file):
+	def load(self, image_file: str) -> tuple:
+		"""pix2pix用の教師データを読み込んで、２つの画像テンソルに分解する
+
+		Args:
+			image_file: 読み込む画像のファイルパス
+
+		Returns:
+			入力画像と目的画像のテンソルを格納したタプル
+			(入力画像, 目的画像)
+		"""
 		# 画像ファイルを読み取って uint8 テンソルにデコードする
 		image = tf.io.read_file(image_file)
 		image = tf.io.decode_jpeg(image)
@@ -253,30 +300,68 @@ class PixToPix():
 		real_image = tf.cast(real_image, tf.float32)
 		return input_image, real_image
 
-	# 画像をリサイズする
-	def resize(self, input_image, real_image, height, width):
+	def resize(self, input_image: tf.Tensor, real_image: tf.Tensor, height: int, width: int) -> tuple:
+		"""教師データの画像をリサイズする
+
+		Args:
+			input_image: 入力画像のテンソル
+			real_image: 目的画像のテンソル
+			height: リサイズする画像の高さ
+			width: リサイズ後の幅
+
+		Returns:
+			入力画像と目的画像のテンソルを格納したタプル
+			(入力画像, 目的画像)
+		"""
 		input_image = tf.image.resize(input_image, [height, width], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
 		real_image = tf.image.resize(real_image, [height, width], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
 		return input_image, real_image
 
-	# ランダムな位置でトリミングする
-	def random_crop(self, input_image, real_image):
+	def random_crop(self, input_image: tf.Tensor, real_image: tf.Tensor) -> tuple:
+		"""教師データをランダムな位置でトリミングする
+
+		Args:
+			input_image: 入力画像のテンソル
+			real_image: 目的画像のテンソル
+
+		Returns:
+			入力画像と目的画像のテンソルを格納したタプル
+			(入力画像, 目的画像)
+		"""
 		stacked_image = tf.stack([input_image, real_image], axis=0)
 		cropped_image = tf.image.random_crop(
 			stacked_image, size=[2, self.IMAGE_SIZE.y, self.IMAGE_SIZE.x, 3])
 
 		return cropped_image[0], cropped_image[1]
 
-	# 画像を [-1, 1] の範囲に正規化する
-	def normalize(self, input_image, real_image):
+	def normalize(self, input_image: tf.Tensor, real_image: tf.Tensor) -> tuple:
+		"""画像を [-1, 1] の範囲に正規化する
+
+		Args:
+			input_image: 入力画像のテンソル
+			real_image: 目的画像のテンソル
+
+		Returns:
+			入力画像と目的画像のテンソルを格納したタプル
+			(入力画像, 目的画像)
+		"""
 		input_image = (input_image / 127.5) - 1
 		real_image = (real_image / 127.5) - 1
 
 		return input_image, real_image
 
-	# 訓練用データの前処理を行う
 	@tf.function()
-	def random_jitter(self, input_image, real_image):
+	def random_jitter(self, input_image: tf.Tensor, real_image: tf.Tensor) -> tuple:
+		"""訓練用データの前処理を行う
+
+		Args:
+			input_image: 入力画像のテンソル
+			real_image: 目的画像のテンソル
+
+		Returns:
+			入力画像と目的画像のテンソルを格納したタプル
+			(入力画像, 目的画像)
+		"""
 		input_image, real_image = self.resize(input_image, real_image, 286, 286)
 		input_image, real_image = self.random_crop(input_image, real_image)			# ランダムにトリミングして元のサイズに戻す
 
@@ -286,8 +371,12 @@ class PixToPix():
 
 		return input_image, real_image
 
-	# 前処理された画像の一部を表示する
-	def show_image_sample(self, dataset):
+	def show_image_sample(self, dataset: Any) -> None:
+		"""前処理された画像のサンプルを表示する
+
+		Args:
+			dataset: load_dataset() 関数で読み込んだデータセット
+		"""
 		loop_num = len(dataset)
 		if loop_num > 5:
 			loop_num = 5
@@ -301,24 +390,42 @@ class PixToPix():
 			plt.show()
 		return
 
-	# 訓練用の画像を読み込む
-	def load_image_train(self, image_file):
+	def load_image_train(self, image_file: str) -> tuple:
+		"""訓練用の教師画像を読み込んで入力画像と目的画像に分割する
+		また、画像にランダム水増しの前処理を追加する
+
+		Args:
+			image_file: 入力画像のファイルパス
+
+		Returns:
+			入力画像と目的画像のテンソルを格納したタプル
+			(入力画像, 目的画像)
+		"""
 		input_image, real_image = self.load(image_file)
 		input_image, real_image = self.random_jitter(input_image, real_image)
 		input_image, real_image = self.normalize(input_image, real_image)
 
 		return input_image, real_image
 
-	# テスト用の画像を読み込む
-	def load_image_test(self, image_file):
+	def load_image_test(self, image_file: str) -> tuple:
+		"""テスト用の教師画像を読み込んで入力画像と目的画像に分割する
+
+		Args:
+			image_file: テスト用画像のファイルパス
+
+		Returns:
+			入力画像と目的画像のテンソルを格納したタプル
+			(入力画像, 目的画像)
+		"""
 		input_image, real_image = self.load(image_file)
 		input_image, real_image = self.resize(input_image, real_image, self.IMAGE_SIZE.y, self.IMAGE_SIZE.x)
 		input_image, real_image = self.normalize(input_image, real_image)
 
 		return input_image, real_image
 
-	# ジェネレーターの損失計算を行う
 	def generator_loss(self, disc_generated_output, gen_output, target):
+		"""ジェネレーターの損失計算を行う
+		"""
 		gan_loss = self.loss_object(tf.ones_like(disc_generated_output), disc_generated_output)
 
 		# 平均絶対誤差
@@ -326,16 +433,23 @@ class PixToPix():
 		total_gen_loss = gan_loss + (self.LAMBDA * l1_loss)
 		return total_gen_loss, gan_loss, l1_loss
 
-	# 弁別器の損失計算を行う
 	def discriminator_loss(self, disc_real_output, disc_generated_output):
+		"""弁別器の損失計算を行う
+		"""
 		real_loss = self.loss_object(tf.ones_like(disc_real_output), disc_real_output)
 
 		generated_loss = self.loss_object(tf.zeros_like(disc_generated_output), disc_generated_output)
 		total_disc_loss = real_loss + generated_loss
 		return total_disc_loss
 
-	# 入力画像、教師画像、出力画像を同時に出力する
-	def generate_images(self, test_input, tar, step = None):
+	def generate_images(self, test_input: tf.Tensor, tar: tf.Tensor, step: int | None = None) -> None:
+		"""入力画像、教師画像、出力画像を横に並べてに出力する
+
+		Args:
+			test_input: 入力画像のテンソル
+			tar: 目的画像のテンソル
+			step: 現在のステップ数 ( 指定することでモデルディレクトリ内に画像を出力する )
+		"""
 		prediction = self.generator(test_input, training=True)
 		plt.figure(figsize=(15, 6))
 
@@ -359,8 +473,18 @@ class PixToPix():
 		plt.close()		# windowを閉じる
 		return
 
-	# データセットを読み込む
-	def load_dataset(self, dataset_dir):
+	def load_dataset(self, dataset_dir: str) -> tuple:
+		"""データセットが保存されているディレクトリを指定してデータセットを読み込む
+		指定されたディレクトリ内の「train」ディレクトリと「test」ディレクトリからそれぞれの画像をすべて読み込む
+		画像はすべてpix2pixの教師データ形式で拡張子は png のみ
+
+		Args:
+			dataset_dir: データセットが保存されているディレクトリパス
+
+		Returns:
+			入力画像と目的画像のデータセットを格納したタプル
+			(入力画像のデータセット, 目的画像のデータセット)
+		"""
 		train_dataset = tf.data.Dataset.list_files(str(Path(dataset_dir) / "train" / "*.png"))
 		train_dataset = train_dataset.map(self.load_image_train, num_parallel_calls=tf.data.AUTOTUNE)
 		train_dataset = train_dataset.shuffle(self.BUFFER_SIZE)
@@ -374,9 +498,19 @@ class PixToPix():
 		test_dataset = test_dataset.batch(self.BATCH_SIZE)
 		return train_dataset, test_dataset
 
-	# １ステップの学習を行う
 	@tf.function
-	def train_step(self, input_image, target, step):
+	def train_step(self, input_image: tf.Tensor, target: tf.Tensor, step: int) -> tuple:
+		"""１ステップ分の学習を行う
+
+		Args:
+			input_image: 入力画像のテンソル
+			target: 教師データの出力画像テンソル
+			step: 現在のステップ数
+
+		Returns:
+			それぞれの損失を格納したタプル
+			(gen_total_loss, gen_gan_loss, gen_l1_loss, disc_loss)
+		"""
 		with tf.GradientTape() as gen_tape, tf.GradientTape() as disc_tape:
 			gen_output = self.generator(input_image, training=True)
 
@@ -399,8 +533,14 @@ class PixToPix():
 			tf.summary.scalar("disc_loss", disc_loss, step=step // 1000)
 		return gen_total_loss, gen_gan_loss, gen_l1_loss, disc_loss
 
-	# 学習を行う
-	def fit(self, train_ds, test_ds, steps):
+	def fit(self, train_ds: Any, test_ds: Any, steps: int) -> None:
+		"""モデルの学習を行う
+
+		Args:
+			train_ds: load_dataset() 関数で読み込んだ入力画像のデータセット
+			test_ds: load_dataset() 関数で読み込んだ目的画像のデータセット
+			steps: 実際に学習を行うステップ数
+		"""
 		STEP_INTERVAL = 1000
 		self.model_data[define.AiDataKey.train_image_num] = len(train_ds)
 		self.model_data[define.AiDataKey.test_image_num] = len(test_ds)
@@ -450,20 +590,26 @@ class PixToPix():
 				nlib3.save_json(self.MODEL_DIR / self.ai_name / self.JSON_FILE_NAME, self.model_data)
 		return
 
-	# モデルを読み込む
-	def load_model(self):
+	def load_model(self) -> None:
+		"""モデルを読み込む ( チェックポイントからモデルの重みを復元する )
+		"""
 		self.checkpoint.restore(tf.train.latest_checkpoint(str(self.MODEL_DIR / self.ai_name)))
 		self.model_data = nlib3.load_json(self.MODEL_DIR / self.ai_name / self.JSON_FILE_NAME)
 		return
 
-	# データセットの推論結果を表示する
-	def show_test(self, dataset):
+	def show_test(self, dataset: Any) -> None:
+		"""指定されたデータセットの推論結果を一つずつ順番に表示する
+
+		Args:
+			dataset: load_dataset() 関数で読み込んだ目的画像のデータセット
+		"""
 		for inp, tar in dataset.take(len(dataset)):
 			self.generate_images(inp, tar)
 		return
 
-	# モデルの学習履歴をグラフで表示する
-	def show_history(self):
+	def show_history(self) -> None:
+		"""モデルの学習履歴をグラフで表示する
+		"""
 		fig = plt.figure(figsize=(6.4 * 2, 4.8 * 2))
 		fig.suptitle("Learning history")
 		ax = fig.add_subplot(2, 2, 1)
