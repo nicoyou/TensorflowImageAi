@@ -1,4 +1,5 @@
 import datetime
+import glob
 import os
 import statistics
 import time
@@ -18,8 +19,6 @@ from matplotlib import pyplot as plt
 
 import define
 import make_pix2pix_image
-
-matplotlib.use("Agg")			# メモリリーク対策
 
 class PixToPixModel():
 	OUTPUT_CHANNELS = 3
@@ -137,9 +136,10 @@ class PixToPixModel():
 class PixToPix():
 	MODEL_DIR = CURRENT_DIR / "models"
 	LOG_DIR = CURRENT_DIR / "logs"
+	CHECKPOINT_FILE_NAME = Path("ckpt")
 	MODEL_FILE_NAME = Path("model")
 	JSON_FILE_NAME = Path("model.json")
-	
+
 	BUFFER_SIZE = 512								# データセットを構成している画像の枚数
 	BATCH_SIZE = 1									# 元の pix2pix 実験では、バッチ サイズ 1 のほうが U-Net でより良い結果が出る
 	IMAGE_SIZE = nlib3.Vector2(256, 256)			# 画像サイズ
@@ -184,7 +184,7 @@ class PixToPix():
 		self.discriminator_optimizer = tf.keras.optimizers.Adam(2e-4, beta_1=0.5)
 
 		# チェックポイントセーバー
-		self.checkpoint_prefix = str(self.MODEL_DIR / self.ai_name / self.MODEL_FILE_NAME)
+		self.checkpoint_prefix = str(self.MODEL_DIR / self.ai_name / self.CHECKPOINT_FILE_NAME)
 		self.checkpoint = tf.train.Checkpoint(
 			generator_optimizer=self.generator_optimizer,
 			discriminator_optimizer=self.discriminator_optimizer,
@@ -204,7 +204,7 @@ class PixToPix():
 			読み込んだ画像のテンソル
 		"""
 		pil_img = PIL.Image.open(file_path)
-		w, h = pil_img.size
+		pil_img = pil_img.convert("RGB")
 		pil_img = make_pix2pix_image.expand_to_square_pad(pil_img)
 		pil_img = pil_img.resize(self.IMAGE_SIZE)
 		tf_image = tf.keras.preprocessing.image.img_to_array(pil_img)
@@ -245,12 +245,13 @@ class PixToPix():
 
 		if out_path is not None:
 			plt.savefig(out_path)
+			return
 
 		plt.show()
 		plt.clf()		# 図形のクリア
 		plt.close()		# windowを閉じる
 		return
-		
+
 	def inference_image(self, input_image_path: str, out_image_path: str) -> None:
 		"""指定された画像をAIで変換して保存する
 
@@ -273,7 +274,7 @@ class PixToPix():
 			result_image = result_image.crop((*out_pad_size, *(self.IMAGE_SIZE - out_pad_size)))
 
 		result_image.save(out_image_path)
-		return
+		return result_image
 
 	def load(self, image_file: str) -> tuple:
 		"""pix2pix用の教師データを読み込んで、２つの画像テンソルに分解する
@@ -548,6 +549,7 @@ class PixToPix():
 		example_input, example_target = next(iter(test_ds.take(1)))
 		start_time = time.time()
 		os.makedirs(self.MODEL_DIR / self.ai_name, exist_ok=True)
+		matplotlib.use("Agg")			# メモリリーク対策
 
 		gen_total_loss_list = []
 		gen_gan_loss_list = []
@@ -588,6 +590,16 @@ class PixToPix():
 			if (step + 1) % 10000 == 0:
 				self.checkpoint.save(file_prefix=self.checkpoint_prefix)
 				nlib3.save_json(self.MODEL_DIR / self.ai_name / self.JSON_FILE_NAME, self.model_data)
+
+				# 古いチェックポイントを削除する
+				ckpt_files = glob.glob(str(self.MODEL_DIR / self.ai_name / self.CHECKPOINT_FILE_NAME) + "-*")
+				for i, row in enumerate(ckpt_files):
+					ckpt_files[i] = Path(row).stem
+					ckpt_files[i] = str(ckpt_files[i]).replace(str(self.CHECKPOINT_FILE_NAME) + "-", "")
+					ckpt_files[i] = int(ckpt_files[i])
+				if max(ckpt_files) % 10 != 1:
+					os.remove(str(self.MODEL_DIR / self.ai_name / (str(self.CHECKPOINT_FILE_NAME) + f"-{max(ckpt_files) - 1}.data-00000-of-00001")))
+					os.remove(str(self.MODEL_DIR / self.ai_name / (str(self.CHECKPOINT_FILE_NAME) + f"-{max(ckpt_files) - 1}.index")))
 		return
 
 	def load_model(self) -> None:
