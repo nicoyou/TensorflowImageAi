@@ -2,8 +2,10 @@ import glob
 import os
 from pathlib import Path
 
+import nlib3
 import tqdm
 from PIL import Image
+
 
 # 画像を横に結合する
 def hconcat(im1, im2):
@@ -46,11 +48,11 @@ def expand_to_square_crop(pil_img):
 
 # ファイル名が同じ２枚の画像ペアを結合して教師データを作成する
 def make_pix2pix_dataset(input_image_dir, output_image_dir, out_dir = "./"):
-	i_images = glob.glob(str(Path(input_image_dir) / "*.*"))
-	o_images = glob.glob(str(Path(output_image_dir) / "*.*"))
+	i_images = glob.glob(str(Path(input_image_dir) / "**" / "*.*"), recursive=True)
+	o_images = glob.glob(str(Path(output_image_dir) / "**" / "*.*"), recursive=True)
 
 	os.makedirs(out_dir, exist_ok=True)
-
+	old_filename = ""
 	for file_path in tqdm.tqdm(i_images):
 		file_name = Path(file_path).stem
 		img = Image.open(file_path)
@@ -60,6 +62,20 @@ def make_pix2pix_dataset(input_image_dir, output_image_dir, out_dir = "./"):
 			print(e)
 			print(file_path)
 			continue
+
+		try:
+			if int(old_filename) + 1 != int(file_name):
+				print(f"{file_name} は連続的ではありません")
+		except Exception:
+			pass
+
+		if img.size != o_img.size:										# 画像サイズが異なれば
+			img_size = nlib3.Vector2(img.size[0], img.size[1])
+			o_img_size = nlib3.Vector2(o_img.size[0], o_img.size[1])
+			if ((img_size / img_size.max()) * 256).floor() != ((o_img_size / o_img_size.max()) * 256).floor():			# アスペクト比も異なれば
+				print(f"{file_name} の画像サイズが一致しませんでした")
+
+
 		img_resized = expand_to_square_pad(img).resize((256, 256))
 		o_img_resized = expand_to_square_pad(o_img).resize((256, 256))
 		result_img = hconcat(o_img_resized, img_resized)
@@ -70,5 +86,9 @@ def make_pix2pix_dataset(input_image_dir, output_image_dir, out_dir = "./"):
 		# result_img = hconcat(o_img_resized, img_resized)
 		# result_img.save(Path(out_dir) / f"{file_name}_crop.png")
 
+		old_filename = file_name
+
+
+
 if __name__ == "__main__":
-	make_pix2pix_dataset("dataset/original/naked_girl/input", "dataset/original/naked_girl/real", "dataset/out_p2p")
+	make_pix2pix_dataset("dataset/pix2pix/input", "dataset/pix2pix/real", "dataset/out_p2p")
