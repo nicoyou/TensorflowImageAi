@@ -21,28 +21,29 @@ def vconcat(im1, im2):
 	dst.paste(im2, (0, im1.height))
 	return dst
 
-# 余白を追加してアスペクト比を維持しながら正方形に変換する
-def expand_to_square_pad(pil_img, background_color = (0, 0, 0)):
-	width, height = pil_img.size
-	if width == height:
+# 余白を追加してアスペクト比を維持しながら指定されたアスペクト比の画像に変換する
+def expand_to_rect_pad(pil_img, aspect_ratio = (1, 1), background_color = (0, 0, 0)):
+	aspect_ratio = nlib3.Vector2(aspect_ratio)
+	img_size = nlib3.Vector2(pil_img.size)
+	if img_size.x * aspect_ratio.y == img_size.y * aspect_ratio.x:
 		return pil_img
-	elif width > height:
-		result = Image.new(pil_img.mode, (width, width), background_color)
-		result.paste(pil_img, (0, (width - height) // 2))
+	elif img_size.x * aspect_ratio.y > img_size.y * aspect_ratio.x:
+		result = Image.new(pil_img.mode, (img_size.x, int(img_size.x * (aspect_ratio.y / aspect_ratio.x))), background_color)
+		result.paste(pil_img, (0, int(img_size.x * (aspect_ratio.y / aspect_ratio.x) - img_size.y) // 2))
 		return result
 	else:
-		result = Image.new(pil_img.mode, (height, height), background_color)
-		result.paste(pil_img, ((height - width) // 2, 0))
+		result = Image.new(pil_img.mode, (int(img_size.y * (aspect_ratio.x / aspect_ratio.y)), img_size.y), background_color)
+		result.paste(pil_img, (int(img_size.y * (aspect_ratio.x / aspect_ratio.y) - img_size.x) // 2, 0))
 		return result
 
-# はみ出す部分を切り取ってアスペクト比を維持しながら正方形に変換する
+# はみ出す部分を切り取ってアスペクト比を維持しながら正方形の画像に変換する
 def expand_to_square_crop(pil_img):
 	crop_length = min(pil_img.size)
 	data = (
 		(pil_img.width - crop_length) // 2,
 		(pil_img.height - crop_length) // 2,
 		(pil_img.width + crop_length) // 2,
-		(pil_img.height + crop_length) // 2
+		(pil_img.height + crop_length) // 2,
 	)
 	return pil_img.crop(data)
 
@@ -76,8 +77,8 @@ def make_pix2pix_dataset(input_image_dir, output_image_dir, out_dir = "./"):
 				print(f"{file_name} の画像サイズが一致しませんでした")
 
 
-		img_resized = expand_to_square_pad(img).resize((256, 256))
-		o_img_resized = expand_to_square_pad(o_img).resize((256, 256))
+		img_resized = expand_to_rect_pad(img).resize((256, 256))
+		o_img_resized = expand_to_rect_pad(o_img).resize((256, 256))
 		result_img = hconcat(o_img_resized, img_resized)
 		result_img.save(Path(out_dir) / f"{file_name}.png")
 
@@ -88,6 +89,19 @@ def make_pix2pix_dataset(input_image_dir, output_image_dir, out_dir = "./"):
 
 		old_filename = file_name
 
+# 画像をpix2pixHDの教師データとして適切な画像サイズに変換する
+def make_pix2pix_hd_dataset_pad(image_dir, out_dir, image_rotate = True):
+	i_images = glob.glob(str(Path(image_dir) / "**" / "*.*"), recursive=True)
+	os.makedirs(out_dir, exist_ok=True)
+	for file_path in tqdm.tqdm(i_images):
+		file_name = Path(file_path).stem
+		img = Image.open(file_path)
+		if image_rotate and img.height > img.width:
+			img = img.rotate(90 * 3, expand=True)
+
+		img_resized = expand_to_rect_pad(img, (2, 1)).resize((2048, 1024))
+		img_resized.save(Path(out_dir) / f"{file_name}.png")
+	return
 
 
 if __name__ == "__main__":

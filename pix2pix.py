@@ -206,7 +206,7 @@ class PixToPix():
 		"""
 		pil_img = PIL.Image.open(file_path)
 		pil_img = pil_img.convert("RGB")
-		pil_img = make_pix2pix_image.expand_to_square_pad(pil_img)
+		pil_img = make_pix2pix_image.expand_to_rect_pad(pil_img)
 		pil_img = pil_img.resize(self.IMAGE_SIZE)
 		tf_image = tf.keras.preprocessing.image.img_to_array(pil_img)
 		tf_image = (tf_image / 127.5) - 1
