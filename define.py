@@ -1,5 +1,6 @@
 import enum
 
+
 class AiType(str, enum.Enum):
 	categorical = "categorical"
 	regression = "regression"

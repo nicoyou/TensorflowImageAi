@@ -4,9 +4,9 @@ import os
 import statistics
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Final
 
-CURRENT_DIR = Path(__file__).parent
+CURRENT_DIR: Final[Path] = Path(__file__).parent
 os.environ["PATH"] += ";" + str(CURRENT_DIR / "dll")			# 環境変数に一時的に dll のパスを追加する
 os.environ["XLA_FLAGS"] = f"--xla_gpu_cuda_data_dir={str(CURRENT_DIR / 'CUDA')}"
 
@@ -20,8 +20,9 @@ from matplotlib import pyplot as plt
 import define
 import make_pix2pix_image
 
+
 class PixToPixModel():
-	OUTPUT_CHANNELS = 3
+	OUTPUT_CHANNELS: Final[int] = 3
 
 	def downsample(self, filters: int, size: int, apply_batchnorm: bool = True) -> Any:
 		"""ダウンサンプラー

@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import tensorflow as tf
 
+
 def show_imgs(images, row: int, col: int) -> None:
 	"""PILimagesをrow*colとして表示
 

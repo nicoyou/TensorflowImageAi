@@ -1,5 +1,6 @@
 import tensorflow as tf
 
+
 class TimeCallback(tf.keras.callbacks.Callback):
 	def __init__(self, metric_name = "time"):
 		self.metric_name = metric_name

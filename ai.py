@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 from typing import Any, Callable, Final
 
-CURRENT_DIR = Path(__file__).parent
+CURRENT_DIR: Final[Path] = Path(__file__).parent
 os.environ["PATH"] += ";" + str(CURRENT_DIR / "dll")			# 環境変数に一時的に dll のパスを追加する
 
 import matplotlib.pyplot as plt
@@ -16,10 +16,10 @@ import tensorflow as tf
 import define
 import tf_callback
 
-__version__: Final = "1.1.0"
-MODEL_DIR: Final = CURRENT_DIR / "models"
-MODEL_FILE = "model"
-RANDOM_SEED = 54
+__version__: Final[str] = "1.1.0"
+MODEL_DIR: Final[Path] = CURRENT_DIR / "models"
+MODEL_FILE: Final[str] = "model"
+RANDOM_SEED: Final[int] = 54
 	
 def model_required(func: Callable) -> Callable:
 	"""モデルが定義されている場合のみ実行するデコレーター
@@ -34,7 +34,7 @@ def model_required(func: Callable) -> Callable:
 class Ai(metaclass = abc.ABCMeta):
 	"""画像分類系AIの根底クラス
 	"""
-	MODEL_DATA_VERSION: Final = 6
+	MODEL_DATA_VERSION: Final[int] = 6
 
 	def __init__(self, ai_type: define.AiType, model_name: str) -> None:
 		"""管理するAIの初期設定を行う
@@ -56,7 +56,7 @@ class Ai(metaclass = abc.ABCMeta):
 
 		Args:
 			img_path: 読み込む画像のファイルパス
-			normalize: ０～１の範囲に正規化する
+			normalize: 0 ～ 1 の範囲に正規化するかどうか
 
 		Returns:
 			画像のテンソル
@@ -74,7 +74,7 @@ class Ai(metaclass = abc.ABCMeta):
 
 		Args:
 			image: pillowイメージ
-			normalize: ０～１の範囲に正規化する
+			normalize: 0 ～ 1 の範囲に正規化するかどうか
 
 		Returns:
 			画像のテンソル
@@ -107,7 +107,7 @@ class Ai(metaclass = abc.ABCMeta):
 		"""データセットの前処理を行うジェネレーターを作成する
 
 		Args:
-			normalize: ０～１の間に正規化するかどうか
+			normalize: 画像の各ピクセルを0 ～ 1 の間に正規化するかどうか
 
 		Returns:
 			ジェネレーター
@@ -141,8 +141,8 @@ class Ai(metaclass = abc.ABCMeta):
 
 		Args:
 			dataset_path: 学習に使用するデータセットのファイルパス
-			epochs: 学習を行うエポック数. Defaults to 6.
-			batch_size: バッチサイズ. Defaults to 32.
+			epochs: 学習を行うエポック数
+			batch_size: バッチサイズ
 			model_type:
 				学習を行うモデルの種類
 				モデルの新規作成時のみ指定する
@@ -237,12 +237,21 @@ class Ai(metaclass = abc.ABCMeta):
 
 class ImageClassificationAi(Ai):
 	"""画像分類AI"""
-	def __init__(self, *args, **kwargs):
+	def __init__(self, *args, **kwargs) -> None:
 		super().__init__(define.AiType.categorical, *args, **kwargs)
 		return
 
-	# 画像分類モデルを作成する
-	def create_model(self, model_type: define.ModelType, num_classes: int, trainable: bool = False):
+	def create_model(self, model_type: define.ModelType, num_classes: int, trainable: bool = False) -> Any | None:
+		"""画像分類モデルを作成する
+
+		Args:
+			model_type: モデルの種類
+			num_classes: 分類するクラスの数
+			trainable: 転移学習時に特徴量抽出部を再学習するかどうか
+
+		Returns:
+			tensorflow のモデル
+		"""
 		match model_type:
 			case define.ModelType.vgg16_512:
 				return self.create_model_vgg16(num_classes, trainable)
@@ -250,8 +259,16 @@ class ImageClassificationAi(Ai):
 				return self.create_model_resnet_rs(num_classes, trainable)
 		return None
 
-	# ResNet_RSモデルを作成する
-	def create_model_resnet_rs(self, num_classes, trainable):
+	def create_model_resnet_rs(self, num_classes: int, trainable: bool) -> Any:
+		"""ResNet_RSの転移学習モデルを作成する
+
+		Args:
+			num_classes: 分類するクラスの数
+			trainable: 特徴量抽出部を再学習するかどうか
+
+		Returns:
+			tensorflow のモデル
+		"""
 		resnet = resnet_rs.ResNetRS152(include_top=False, input_shape=(self.img_height, self.img_width, 3), weights="imagenet-i224")
 
 		top_model = tf.keras.Sequential()
@@ -277,8 +294,16 @@ class ImageClassificationAi(Ai):
 		)
 		return model
 
-	# vgg16から転移学習するためのmodelを作成する
-	def create_model_vgg16(self, num_classes, trainable):
+	def create_model_vgg16(self, num_classes: int, trainable: bool) -> Any:
+		"""vgg16の転移学習モデルを作成する
+
+		Args:
+			num_classes: 分類するクラスの数
+			trainable: 特徴量抽出部を再学習するかどうか
+
+		Returns:
+			tensorflow のモデル
+		"""
 		vgg16 = tf.keras.applications.vgg16.VGG16(include_top=False, input_shape=(self.img_height, self.img_width, 3))
 
 		top_model =  tf.keras.Sequential()
@@ -296,7 +321,7 @@ class ImageClassificationAi(Ai):
 			for layer in model.layers[:15]:
 				layer.trainable = False
 
-		# 最適化アルゴリズムをSGD（確率的勾配降下法）とし最適化の学習率と修正幅を指定してコンパイルする。
+		# 最適化アルゴリズムをSGD ( 確率的勾配降下法 ) として最適化の学習率と修正幅を指定してコンパイルする
 		model.compile(
 			loss="categorical_crossentropy",
 			optimizer=tf.keras.optimizers.Adam(learning_rate=0.0001),
@@ -304,8 +329,18 @@ class ImageClassificationAi(Ai):
 		)
 		return model
 
-	# 訓練用のデータセットを生成する
-	def create_dataset(self, dataset_path, batch_size, normalize = False):
+	def create_dataset(self, dataset_path: str, batch_size: int, normalize: bool = False) -> tuple:
+		"""訓練用のデータセットを読み込む
+
+		Args:
+			dataset_path: 教師データが保存されているディレクトリを指定する
+			batch_size: バッチサイズ
+			normalize: 画像を前処理で 0 ～ 1 の範囲に正規化するかどうか
+
+		Returns:
+			train_ds: 訓練用のデータセット
+			val_ds: テスト用のデータセット
+		"""
 		generator = self.create_generator(normalize)
 		train_ds = generator.flow_from_directory(
 			dataset_path,
@@ -323,41 +358,69 @@ class ImageClassificationAi(Ai):
 			subset = "validation")
 		return train_ds, val_ds		# [[[img*batch], [class*batch]], ...] の形式
 		
-	# データセットに含まれるクラスごとの画像の数を取得する
-	def count_image_from_dataset(self, dataset):
+	def count_image_from_dataset(self, dataset: Any) -> tuple:
+		"""データセットに含まれるクラスごとの画像の数を取得する
+
+		Args:
+			dataset: 画像数を計測するデータセット
+
+		Returns:
+			class_image_num: それぞれの分類クラスの画像数が格納されたリスト
+			class_indices: データセットのクラス名からクラスインデックスへのマッピングを含む辞書
+		"""
 		progbar = tf.keras.utils.Progbar(len(dataset))
 		class_image_num = []
-		for i in range(len(dataset.class_indices)):			# 各クラスの読み込み枚数を 0 で初期化して、カウント用のキーを生成する ( ３クラス中の１番目なら [1, 0, 0])
+		for i in range(len(dataset.class_indices)):					# 各クラスの読み込み枚数を 0 で初期化して、カウント用のキーを生成する ( 3 クラス中の 1 番目なら[1, 0, 0] )
 			class_image_num.append([0, [1 if i == row else 0 for row in range(len(dataset.class_indices))]])
 
 		for i, row in enumerate(dataset):
-			for image_num in class_image_num:					# 各クラスのデータ数を計測する
+			for image_num in class_image_num:						# 各クラスのデータ数を計測する
 				image_num[0] += np.count_nonzero([np.all(x) for x in (row[1] == image_num[1])])		# numpyでキーが一致するものをカウントする
 			progbar.update(i + 1)
-			if i == len(dataset) - 1:							# 無限にループするため、最後まで取得したら終了する
+			if i == len(dataset) - 1:								# 無限にループするため、最後まで取得したら終了する
 				break
-		class_image_num = [row for row, label in class_image_num]		# 不要になったラベルのキーを破棄する
+		class_image_num = [row for row, label in class_image_num]	# 不要になったラベルのキーを破棄する
 		dataset.reset()
 		return class_image_num, dataset.class_indices
 
-	# 指定された画像の推論結果を取得する
 	@model_required
-	def inference(self, image):
+	def inference(self, image: str | tf.Tensor) -> list:
+		"""画像を指定して推論する
+
+		Args:
+			image: 画像のファイルパスか、画像のテンソル
+
+		Returns:
+			各クラスの確立を格納したリスト
+		"""
 		if type(image) is str:
 			image = self.preprocess_image(image, self.get_normalize_flag())
 		result = self.model(image)		
 		return [float(row) for row in result[0]]
 
-	# モデルから返された結果を分類のクラス名に変換する
 	@model_required
-	def result_to_classname(self, result):
+	def result_to_classname(self, result: list | tuple) -> str:
+		"""推論結果のリストをクラス名に変換する
+
+		Args:
+			result: inference 関数で得た推論結果
+
+		Returns:
+			クラス名
+		"""
 		class_name_list = list(self.model_data[define.AiDataKey.class_indices].keys())
 		return class_name_list[list(result).index(max(result))]
 
-	# テストデータの推論結果を表示する
 	@model_required
-	def show_model_test(self, dataset_path, max_loop_num = 0, use_val_ds = True):
-		train_ds, test_ds = self.create_dataset(dataset_path, 12, normalize=self.get_normalize_flag())
+	def show_model_test(self, dataset_path: str, max_loop_num: int = 0, use_val_ds: bool = True) -> None:
+		"""テストデータの推論結果を表示する
+
+		Args:
+			dataset_path: テストに使用するデータセットのディレクトリ
+			max_loop_num: 結果を表示する最大回数 ( 1 回につき複数枚の画像が表示される )
+			use_val_ds: データセットから訓練用の画像を使用するかどうか ( False でテスト用データを使用する )
+		"""
+		train_ds, test_ds = self.create_dataset(dataset_path, 12, normalize=self.get_normalize_flag())		# バッチサイズを表示する画像数と同じにする
 		if not use_val_ds:
 			test_ds = train_ds
 
@@ -374,13 +437,23 @@ class ImageClassificationAi(Ai):
 					color = "red"
 				ax.bar(np.array(range(len(class_name_list))), result, tick_label=class_name_list, color=color)
 			plt.show()
-			if i == len(test_ds) - 1 or i == max_loop_num - 1:
+			if i == len(test_ds) - 1 or i == max_loop_num - 1:												# 表示した回数がバッチ数を超えたら終了する
 				break
 		return
 
-	# テストデータで分類に失敗したデータリストを取得する
 	@model_required
-	def get_model_miss_list(self, dataset_path, use_val_ds = True, print_result = False):
+	def get_model_miss_list(self, dataset_path: str, use_val_ds: bool = True, print_result: bool = False) -> list:
+		"""テストデータで分類に失敗したデータリストを取得する
+
+		Args:
+			dataset_path: 推論に使用するデータセットのディレクトリ
+			use_val_ds: データセットから訓練用の画像を使用するかどうか ( False でテスト用データを使用する )
+			print_result: 間違えている推論結果をコンソールに表示する
+
+		Returns:
+			間違えた推論結果と本来のクラスを格納したタプルのリスト
+			[(推論結果, 解答), (推論結果, 解答)...]
+		"""
 		train_ds, test_ds = self.create_dataset(dataset_path, 8, normalize=self.get_normalize_flag())
 		result_list = []
 		if not use_val_ds:
@@ -390,7 +463,7 @@ class ImageClassificationAi(Ai):
 			for j in range(len(row[0])):			# 最大12の画像数
 				result = self.model(tf.expand_dims(row[0][j], 0))[0]
 				if list(row[1][j]).index(1) != list(result).index(max(result)):
-					result_list.append(result, row[1][j])
+					result_list.append(([float(row) for row in result], list(row[1][j])))
 					if print_result:
 						result_class = self.result_to_classname(result)
 						true_class = self.result_to_classname(row[1][j])
@@ -402,18 +475,37 @@ class ImageClassificationAi(Ai):
 
 class ImageRegressionAi(Ai):
 	"""画像の回帰分析AI"""
-	def __init__(self, *args, **kwargs):
+	def __init__(self, *args, **kwargs) -> None:
 		super().__init__(define.AiType.regression, *args, **kwargs)
 		return
 
-	def create_model(self, model_type: define.ModelType, num_classes: int, trainable: bool = False):
+	def create_model(self, model_type: define.ModelType, num_classes: int, trainable: bool = False) -> Any:
+		"""画像の回帰分析モデルを作成する
+
+		Args:
+			model_type: モデルの種類
+			num_classes: 分類するクラスの数 ( 回帰分析モデルでは使用しない )
+			trainable: 転移学習時に特徴量抽出部を再学習するかどうか
+
+		Returns:
+			tensorflow のモデル
+		"""
 		match model_type:
 			case define.ModelType.resnet_rs152_512x2_regr:
 				return self.create_model_resnet_rs_regr(trainable)
 		return None
 
 	@staticmethod
-	def accuracy(y_true, y_pred):
+	def accuracy(y_true: Any, y_pred: Any) -> Any:
+		"""回帰問題における正答率に使用するスコアを計算する
+
+		Args:
+			y_true: 正しい値
+			y_pred: 推論された値
+
+		Returns:
+			0 ～ 1 のスコア
+		"""
 		pred_error = abs(y_true - y_pred)
 		result = tf.divide(
 			tf.reduce_sum(
@@ -422,8 +514,15 @@ class ImageRegressionAi(Ai):
 		)
 		return result
 
-	# ResNet_RSモデルを作成する
-	def create_model_resnet_rs_regr(self, trainable):
+	def create_model_resnet_rs_regr(self, trainable: bool) -> Any:
+		"""ResNet_RSの転移学習モデルを作成する
+
+		Args:
+			trainable: 特徴量抽出部を再学習するかどうか
+
+		Returns:
+			tensorflow のモデル
+		"""
 		resnet = resnet_rs.ResNetRS152(include_top=False, input_shape=(self.img_height, self.img_width, 3), weights="imagenet-i224")
 
 		top_model = tf.keras.Sequential()
@@ -449,8 +548,18 @@ class ImageRegressionAi(Ai):
 		)
 		return model
 
-	# 訓練用のデータセットを生成する
-	def create_dataset(self, data_csv_path, batch_size, normalize = False):
+	def create_dataset(self, data_csv_path: str, batch_size: int, normalize: bool = False) -> tuple:
+		"""訓練用のデータセットを読み込む
+
+		Args:
+			data_csv_path: 教師データとなる csv ファイルのパス
+			batch_size: バッチサイズ
+			normalize: 画像を前処理で 0 ～ 1 の範囲に正規化するかどうか
+
+		Returns:
+			train_ds: 訓練用のデータセット
+			val_ds: テスト用のデータセット
+		"""
 		generator = self.create_generator(normalize)
 		df = pandas.read_csv(data_csv_path)
 		df = df.sample(frac=1, random_state=0)				# ランダムに並び変える
@@ -470,8 +579,16 @@ class ImageRegressionAi(Ai):
 			subset = "validation")
 		return train_ds, val_ds		# [[[img*batch], [class*batch]], ...] の形式
 
-	# データセットに含まれるクラスごとの画像の数を取得する
-	def count_image_from_dataset(self, dataset):
+	def count_image_from_dataset(self, dataset: Any) -> tuple:
+		"""データセットに含まれる画像の数を取得する
+
+		Args:
+			dataset: 画像数を計測するデータセット
+
+		Returns:
+			class_image_num: それぞれの値の画像数が格納されたリスト
+			class_indices: データセットのそれぞれの値からクラスインデックスへのマッピングを含む辞書
+		"""
 		progbar = tf.keras.utils.Progbar(len(dataset))
 		image_num = {}
 			
@@ -489,24 +606,37 @@ class ImageRegressionAi(Ai):
 		class_indices = {row: i for i, row in enumerate(list(image_num.keys()))}
 		return list(image_num.values()), class_indices
 
-	# 指定された画像の推論結果を取得する
 	@model_required
-	def inference(self, image):
+	def inference(self, image: str | tf.Tensor) -> float:
+		"""画像を指定して推論する
+
+		Args:
+			image: 画像のファイルパスか、画像のテンソル
+
+		Returns:
+			推論結果
+		"""
 		if type(image) is str:
 			image = self.preprocess_image(image, self.get_normalize_flag())
 		result = self.model(image)
 		return float(result[0])
 
-	# テストデータの推論結果を表示する
 	@model_required
-	def show_model_test(self, dataset_path, max_loop_num = 0, use_val_ds = True):
+	def show_model_test(self, dataset_path: str, max_loop_num: int = 0, use_val_ds: bool = True) -> None:
+		"""テストデータの推論結果を表示する
+
+		Args:
+			dataset_path: テストに使用するデータセットのディレクトリ
+			max_loop_num: 結果を表示する最大回数 ( 1 回につき複数枚の画像が表示される )
+			use_val_ds: データセットから訓練用の画像を使用するかどうか ( False でテスト用データを使用する )
+		"""
 		train_ds, test_ds = self.create_dataset(dataset_path, 12, normalize=self.get_normalize_flag())
 		if not use_val_ds:
 			test_ds = train_ds
 
 		for i, row in enumerate(test_ds):
 			fig = plt.figure(figsize=(16, 9))
-			for j in range(len(row[0])):			# 最大12の画像数
+			for j in range(len(row[0])):
 				result = self.model(tf.expand_dims(row[0][j], 0))[0]
 				ax = fig.add_subplot(3, 8, j * 2 + 1)
 				ax.imshow(row[0][j])
@@ -516,7 +646,7 @@ class ImageRegressionAi(Ai):
 					color = "orange"
 				if abs(row[1][j] - result[0]) > 0.35:
 					color = "red"
-				ax.bar([0, 1], [result[0], row[1][j]], tick_label=["ai", "answer"], color=color)
+				ax.bar([0, 1], [result[0], row[1][j]], tick_label=["ai", "true"], color=color)
 				ax.set_ylim(0, 1.1)
 			plt.show()
 			if i == len(test_ds) - 1 or i == max_loop_num - 1:

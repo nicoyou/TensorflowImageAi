@@ -8,6 +8,7 @@ import anime_face_detector
 import define
 import image_manager
 
+
 class AnimeFaceAi():
 	def __init__(self):
 		self.afd = anime_face_detector.AnimeFaceDetector()
@@ -81,12 +82,10 @@ class AnimeFaceAi():
 		return image_data
 
 if __name__ == "__main__":
-	afai = AnimeFaceAi()
-	#afai.crop_image_face_dir("./dataset/dataset2", "./out")
-
 	import nlib3
-	import glob
-	image_path = "./dataset/anime_age/0"
-	images = glob.glob(str(pathlib.Path(image_path, "*")))
-	nlib3.save_json(pathlib.Path(image_path, "image_data.json"), afai.get_face_data_from_imagelist(images))
 	
+	afai = AnimeFaceAi()
+	image_dir = "./dataset"
+	images = image_manager.get_image_path_from_dir(image_dir)
+	nlib3.save_json(pathlib.Path(image_dir, "image_data.json"), afai.get_face_data_from_imagelist(images))
+	#afai.crop_image_face_dir("./dataset", "./out")
