@@ -1,3 +1,5 @@
+from typing import Any
+
 import matplotlib.pyplot as plt
 import tensorflow as tf
 
@@ -22,7 +24,13 @@ def show_imgs(images, row: int, col: int) -> None:
 	plt.show()
 	return
 
-def show_generator_sample(generator, image_path):
+def show_generator_sample(generator: Any, image_path: str) -> None:
+	"""ジェネレーターによって行われる前処理のサンプルを表示する
+
+	Args:
+		generator: 使用するジェネレーター
+		image_path: サンプルとして表示する画像
+	"""
 	img = tf.keras.utils.load_img(image_path)			# 画像ファイルをPIL形式でオープン
 	x =  tf.keras.utils.img_to_array(img)				# PIL形式をnumpyのndarray形式に変換
 	x = x.reshape((1,) + x.shape)						# (height, width, 3) -> (1, height, width, 3)

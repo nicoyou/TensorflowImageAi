@@ -6,7 +6,7 @@ from PIL import Image
 
 import anime_face_detector
 import define
-import image_manager
+import image_lib
 
 
 class AnimeFaceAi():
@@ -25,7 +25,7 @@ class AnimeFaceAi():
 		Returns:
 			切り抜いた顔の数
 		"""
-		images = image_manager.get_image_path_from_dir(in_dir)
+		images = image_lib.get_image_path_from_dir(in_dir)
 		count = 0
 		for image in tqdm.tqdm(images):
 			out_path = pathlib.Path(out_dir, image)
@@ -86,6 +86,6 @@ if __name__ == "__main__":
 	
 	afai = AnimeFaceAi()
 	image_dir = "./dataset"
-	images = image_manager.get_image_path_from_dir(image_dir)
+	images = image_lib.get_image_path_from_dir(image_dir)
 	nlib3.save_json(pathlib.Path(image_dir, "image_data.json"), afai.get_face_data_from_imagelist(images))
 	#afai.crop_image_face_dir("./dataset", "./out")
