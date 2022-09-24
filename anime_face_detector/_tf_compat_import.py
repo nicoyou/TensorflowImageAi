@@ -1,5 +1,6 @@
 __all__ = ['compat_tensorflow']
 
+
 def _compat_tf_import(enable_gpu: bool = True):
     if not enable_gpu:
         import os
@@ -11,5 +12,6 @@ def _compat_tf_import(enable_gpu: bool = True):
         return tf_v1
     except ImportError:
         return tf
+
 
 compat_tensorflow = _compat_tf_import()
