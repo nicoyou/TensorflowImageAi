@@ -16,7 +16,7 @@ import tensorflow as tf
 import define
 import tf_callback
 
-__version__: Final[str] = "1.1.0"
+__version__: Final[str] = "1.2.0"
 MODEL_DIR: Final[Path] = CURRENT_DIR / "models"
 MODEL_FILE: Final[str] = "model"
 RANDOM_SEED: Final[int] = 54

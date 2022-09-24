@@ -7,22 +7,47 @@ import tqdm
 from PIL import Image
 
 
-# 画像を横に結合する
-def hconcat(im1, im2):
+def hconcat(im1: Image, im2: Image) -> Image:
+	"""画像を横に結合する
+
+	Args:
+		im1: 左側のPIL画像
+		im2: 右側のPIL画像
+
+	Returns:
+		結合済みのPIL画像
+	"""
 	dst = Image.new("RGB", (im1.width + im2.width, im1.height))
 	dst.paste(im1, (0, 0))
 	dst.paste(im2, (im1.width, 0))
 	return dst
 
-# 画像を縦に結合する
-def vconcat(im1, im2):
+def vconcat(im1: Image, im2: Image) -> Image:
+	"""画像を縦に結合する
+
+	Args:
+		im1: 上側のPIL画像
+		im2: 下側のPIL画像
+
+	Returns:
+		結合済みのPIL画像
+	"""
 	dst = Image.new("RGB", (im1.width, im1.height + im2.height))
 	dst.paste(im1, (0, 0))
 	dst.paste(im2, (0, im1.height))
 	return dst
 
-# 余白を追加してアスペクト比を維持しながら指定されたアスペクト比の画像に変換する
-def expand_to_rect_pad(pil_img, aspect_ratio = (1, 1), background_color = (0, 0, 0)):
+def expand_to_rect_pad(pil_img: Image, aspect_ratio: tuple | list = (1, 1), background_color: tuple | list = (0, 0, 0)) -> Image:
+	"""余白を追加してアスペクト比を維持しながら指定されたアスペクト比の画像に変換する
+
+	Args:
+		pil_img: 変換するPIL画像
+		aspect_ratio: 出力する画像のアスペクト比
+		background_color: 余白の色
+
+	Returns:
+		変換後のPIL画像
+	"""
 	aspect_ratio = nlib3.Vector2(aspect_ratio)
 	img_size = nlib3.Vector2(pil_img.size)
 	if img_size.x * aspect_ratio.y == img_size.y * aspect_ratio.x:
@@ -36,8 +61,15 @@ def expand_to_rect_pad(pil_img, aspect_ratio = (1, 1), background_color = (0, 0,
 		result.paste(pil_img, (int(img_size.y * (aspect_ratio.x / aspect_ratio.y) - img_size.x) // 2, 0))
 		return result
 
-# はみ出す部分を切り取ってアスペクト比を維持しながら正方形の画像に変換する
-def expand_to_square_crop(pil_img):
+def expand_to_square_crop(pil_img: Image) -> Image:
+	"""はみ出す部分を切り取ってアスペクト比を維持しながら正方形の画像に変換する
+
+	Args:
+		pil_img: PIL画像
+
+	Returns:
+		変換後のPIL画像
+	"""
 	crop_length = min(pil_img.size)
 	data = (
 		(pil_img.width - crop_length) // 2,
@@ -47,8 +79,14 @@ def expand_to_square_crop(pil_img):
 	)
 	return pil_img.crop(data)
 
-# ファイル名が同じ２枚の画像ペアを結合して教師データを作成する
-def make_pix2pix_dataset(input_image_dir, output_image_dir, out_dir = "./"):
+def make_pix2pix_dataset(input_image_dir: str, output_image_dir: str, out_dir: str = "./") -> None:
+	"""ファイル名が同じ２枚の画像ペアを結合して教師データを作成する
+
+	Args:
+		input_image_dir: 入力画像が格納されたディレクトリ
+		output_image_dir: 入力画像と対になる同じファイル名の出力画像が格納されたディレクトリ
+		out_dir: 生成した pix2pix 用の教師データを出力するディレクトリ
+	"""
 	i_images = glob.glob(str(Path(input_image_dir) / "**" / "*.*"), recursive=True)
 	o_images = glob.glob(str(Path(output_image_dir) / "**" / "*.*"), recursive=True)
 
@@ -88,9 +126,16 @@ def make_pix2pix_dataset(input_image_dir, output_image_dir, out_dir = "./"):
 		# result_img.save(Path(out_dir) / f"{file_name}_crop.png")
 
 		old_filename = file_name
+	return
 
-# 画像をpix2pixHDの教師データとして適切な画像サイズに変換する
-def make_pix2pix_hd_dataset_pad(image_dir, out_dir, image_rotate = True):
+def make_pix2pix_hd_dataset_pad(image_dir: str, out_dir: str, image_rotate: bool = True) -> None:
+	"""画像をpix2pixHDの教師データとして適切な画像サイズに変換する
+
+	Args:
+		image_dir: 未加工の教師データが格納されているディレクトリ
+		out_dir: 変換後の教師データを保存するディレクトリ
+		image_rotate: 縦長の画像を横向きに 90 度回転させるかどうか
+	"""
 	i_images = glob.glob(str(Path(image_dir) / "**" / "*.*"), recursive=True)
 	os.makedirs(out_dir, exist_ok=True)
 	for file_path in tqdm.tqdm(i_images):
