@@ -12,6 +12,7 @@ import numpy as np
 import pandas
 import resnet_rs
 import tensorflow as tf
+from PIL import ImageFile
 
 import define
 import tf_callback
@@ -43,6 +44,7 @@ class Ai(metaclass = abc.ABCMeta):
 			ai_type: 管理するAIの種類
 			model_name: 管理するAIの名前 ( 保存、読み込み用 )
 		"""
+		ImageFile.LOAD_TRUNCATED_IMAGES = True			# 高速にロードできない画像も読み込む
 		self.model = None
 		self.model_data = None
 		self.model_name = model_name
@@ -236,7 +238,7 @@ class Ai(metaclass = abc.ABCMeta):
 
 
 class ImageClassificationAi(Ai):
-	"""画像分類AI"""
+	"""多クラス分類AI"""
 	def __init__(self, *args, **kwargs) -> None:
 		super().__init__(define.AiType.categorical, *args, **kwargs)
 		return
@@ -565,18 +567,20 @@ class ImageRegressionAi(Ai):
 		df = df.sample(frac=1, random_state=0)				# ランダムに並び変える
 		train_ds = generator.flow_from_dataframe(
 			df,
-			target_size = (self.img_height, self.img_width),
-			batch_size = batch_size,
+			directory=Path(data_csv_path).parent,			# csv ファイルが保存されていたディレクトリを画像ファイルの親ディレクトリにする
+			target_size=(self.img_height, self.img_width),
+			batch_size=batch_size,
 			seed=RANDOM_SEED,
 			class_mode="raw",
-			subset = "training")
+			subset="training")
 		val_ds = generator.flow_from_dataframe(
 			df,
-			target_size = (self.img_height, self.img_width),
-			batch_size = batch_size,
+			directory=Path(data_csv_path).parent,
+			target_size=(self.img_height, self.img_width),
+			batch_size=batch_size,
 			seed=RANDOM_SEED,
 			class_mode="raw",
-			subset = "validation")
+			subset="validation")
 		return train_ds, val_ds		# [[[img*batch], [class*batch]], ...] の形式
 
 	def count_image_from_dataset(self, dataset: Any) -> tuple:
@@ -589,6 +593,8 @@ class ImageRegressionAi(Ai):
 			class_image_num: それぞれの値の画像数が格納されたリスト
 			class_indices: データセットのそれぞれの値からクラスインデックスへのマッピングを含む辞書
 		"""
+		if len(dataset) <= 0:
+			nlib3.print_error_log("空のデータセットが渡されました")
 		progbar = tf.keras.utils.Progbar(len(dataset))
 		image_num = {}
 			
