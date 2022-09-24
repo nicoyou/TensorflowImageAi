@@ -1,4 +1,5 @@
 import enum
+from typing import Final
 
 
 class AiType(str, enum.Enum):
@@ -45,3 +46,5 @@ class PersonDataKey(str, enum.Enum):
 	face_pos = "face_pos"
 	age = "age"
 	
+	
+RANDOM_SEED: Final[int] = 54
