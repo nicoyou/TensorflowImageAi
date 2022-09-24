@@ -1,4 +1,5 @@
 from image_classification_ai import ImageClassificationAi
+from image_multi_label_ai import ImageMultiLabelAi
 from image_regression_ai import ImageRegressionAi
 from define import ModelType
 

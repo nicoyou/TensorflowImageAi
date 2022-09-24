@@ -4,6 +4,7 @@ from typing import Final
 
 class AiType(str, enum.Enum):
 	categorical = "categorical"
+	multi_label = "multi_label"
 	regression = "regression"
 
 	gan = "genera_tive_adversarial_networks"
@@ -13,6 +14,7 @@ class ModelType(str, enum.Enum):
 	vgg16_512 = "vgg16_512"
 	resnet_rs152_512x2 = "resnet_rs152_512x2"
 	resnet_rs152_512x2_regr = "resnet_rs152_512x2_regr"
+	resnet_rs152_512x2_multi_label = "resnet_rs152_512x2_multi_label"
 
 	pix2pix = "pix2pix"
 

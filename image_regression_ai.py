@@ -90,7 +90,7 @@ class ImageRegressionAi(ai.Ai):
 		"""訓練用のデータセットを読み込む
 
 		Args:
-			data_csv_path: 教師データとなる csv ファイルのパス
+			data_csv_path: データセットの情報が格納された csv ファイルのパス
 			batch_size: バッチサイズ
 			normalize: 画像を前処理で 0 ～ 1 の範囲に正規化するかどうか
 
@@ -164,15 +164,15 @@ class ImageRegressionAi(ai.Ai):
 		return float(result[0])
 
 	@ai.model_required
-	def show_model_test(self, dataset_path: str, max_loop_num: int = 0, use_val_ds: bool = True) -> None:
+	def show_model_test(self, data_csv_path: str, max_loop_num: int = 0, use_val_ds: bool = True) -> None:
 		"""テストデータの推論結果を表示する
 
 		Args:
-			dataset_path: テストに使用するデータセットのディレクトリ
+			data_csv_path: データセットの情報が格納された csv ファイルのパス
 			max_loop_num: 結果を表示する最大回数 ( 1 回につき複数枚の画像が表示される )
 			use_val_ds: データセットから訓練用の画像を使用するかどうか ( False でテスト用データを使用する )
 		"""
-		train_ds, test_ds = self.create_dataset(dataset_path, 12, normalize=self.get_normalize_flag())
+		train_ds, test_ds = self.create_dataset(data_csv_path, 12, normalize=self.get_normalize_flag())
 		if not use_val_ds:
 			test_ds = train_ds
 
