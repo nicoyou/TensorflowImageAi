@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image
 
-EXTENSION_LIST = [
+IMAGE_EXTENSION_LIST = [
 	"png",
 	"jpg",
 	"jpeg",
@@ -84,6 +84,6 @@ def get_image_path_from_dir(dir_path: str) -> list:
 	image_path_list = []
 	for image in images:
 		image_path = pathlib.Path(image)
-		if image_path.suffix[1:].lower() in EXTENSION_LIST and image_path.is_file():
+		if image_path.suffix[1:].lower() in IMAGE_EXTENSION_LIST and image_path.is_file():
 			image_path_list.append(image_path)
 	return image_path_list
