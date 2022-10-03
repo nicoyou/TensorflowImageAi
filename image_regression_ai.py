@@ -1,3 +1,4 @@
+import ai
 from pathlib import Path
 from typing import Any
 
@@ -7,7 +8,6 @@ import pandas
 import resnet_rs
 import tensorflow as tf
 
-import ai
 import define
 
 
@@ -133,14 +133,14 @@ class ImageRegressionAi(ai.Ai):
 			nlib3.print_error_log("空のデータセットが渡されました")
 		progbar = tf.keras.utils.Progbar(len(dataset))
 		image_num = {}
-			
+
 		for i, row in enumerate(dataset):
 			for value in row[1]:
 				if value in image_num:
 					image_num[value] += 1
 				else:
 					image_num[value] = 1
-				
+
 			progbar.update(i + 1)
 			if i == len(dataset) - 1:							# 無限にループするため、最後まで取得したら終了する
 				break

@@ -1,3 +1,4 @@
+import ai
 from pathlib import Path
 from typing import Any
 
@@ -8,7 +9,6 @@ import pandas
 import resnet_rs
 import tensorflow as tf
 
-import ai
 import define
 
 
@@ -120,7 +120,7 @@ class ImageMultiLabelAi(ai.Ai):
 			class_mode="categorical",
 			subset="validation")
 		return train_ds, val_ds		# [[[img*batch], [class*batch]], ...] の形式
-		
+
 	def count_image_from_dataset(self, dataset: Any) -> tuple:
 		"""データセットに含まれるラベルごとの画像の数を取得する
 

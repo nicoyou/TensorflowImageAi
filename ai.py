@@ -17,7 +17,7 @@ import tf_callback
 __version__: Final[str] = "1.2.0"
 MODEL_DIR: Final[Path] = CURRENT_DIR / "models"
 MODEL_FILE: Final[str] = "model"
-	
+
 def model_required(func: Callable) -> Callable:
 	"""モデルが定義されている場合のみ実行するデコレーター
 	"""

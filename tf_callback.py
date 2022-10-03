@@ -12,4 +12,3 @@ class TimeCallback(tf.keras.callbacks.Callback):
 	def on_epoch_end(self, epoch, logs = {}):
 		logs[self.metric_name] = float(tf.timestamp() - self.timetaken)
 		return
-		

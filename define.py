@@ -36,7 +36,7 @@ class GanDataKey(str, enum.Enum):
 	gen_total_loss = "gen_total_loss"
 	gen_gan_loss = "gen_gan_loss"
 	gen_l1_loss = "gen_l1_loss"
-	disc_loss = "disc_loss"	
+	disc_loss = "disc_loss"
 	time = "time"
 
 
@@ -47,6 +47,6 @@ class PersonDataKey(str, enum.Enum):
 	face_score = "face_score"
 	face_pos = "face_pos"
 	age = "age"
-	
-	
+
+
 RANDOM_SEED: Final[int] = 54

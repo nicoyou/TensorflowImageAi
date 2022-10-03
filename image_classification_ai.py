@@ -1,3 +1,4 @@
+import ai
 from typing import Any
 
 import matplotlib.pyplot as plt
@@ -5,7 +6,6 @@ import numpy as np
 import resnet_rs
 import tensorflow as tf
 
-import ai
 import define
 
 
@@ -131,7 +131,7 @@ class ImageClassificationAi(ai.Ai):
 			class_mode="categorical",
 			subset = "validation")
 		return train_ds, val_ds		# [[[img*batch], [class*batch]], ...] の形式
-		
+
 	def count_image_from_dataset(self, dataset: Any) -> tuple:
 		"""データセットに含まれるクラスごとの画像の数を取得する
 
