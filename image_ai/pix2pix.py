@@ -17,8 +17,8 @@ import PIL
 import tensorflow as tf
 from matplotlib import pyplot as plt
 
-import define
-import make_pix2pix_image
+from . import define
+from . import make_pix2pix_image
 
 
 class PixToPixModel():

@@ -1,4 +1,4 @@
-import ai
+from . import ai
 from pathlib import Path
 from typing import Any
 
@@ -8,7 +8,7 @@ import pandas
 import resnet_rs
 import tensorflow as tf
 
-import define
+from . import define
 
 
 class ImageRegressionAi(ai.Ai):

@@ -1,4 +1,4 @@
-import ai
+from . import ai
 from typing import Any
 
 import matplotlib.pyplot as plt
@@ -6,7 +6,7 @@ import numpy as np
 import resnet_rs
 import tensorflow as tf
 
-import define
+from . import define
 
 
 class ImageClassificationAi(ai.Ai):

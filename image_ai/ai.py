@@ -11,8 +11,8 @@ import nlib3
 import tensorflow as tf
 from PIL import ImageFile
 
-import define
-import tf_callback
+from . import define
+from . import tf_callback
 
 __version__: Final[str] = "1.2.0"
 MODEL_DIR: Final[Path] = CURRENT_DIR / "models"
