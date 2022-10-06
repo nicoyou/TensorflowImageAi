@@ -3,19 +3,20 @@ import os
 from pathlib import Path
 from typing import Any, Callable, Final
 
-CURRENT_DIR: Final[Path] = Path(__file__).parent
-os.environ["PATH"] += ";" + str(CURRENT_DIR / "dll")			# 環境変数に一時的に dll のパスを追加する
+from . import define
+
+os.environ["PATH"] += ";" + str(define.CURRENT_DIR / "dll")			# 環境変数に一時的に dll のパスを追加する
+os.environ["XLA_FLAGS"] = f"--xla_gpu_cuda_data_dir={str(define.CURRENT_DIR / 'CUDA')}"
 
 import matplotlib.pyplot as plt
 import nlib3
 import tensorflow as tf
 from PIL import ImageFile
 
-from . import define
 from . import tf_callback
 
 __version__: Final[str] = "1.2.0"
-MODEL_DIR: Final[Path] = CURRENT_DIR / "models"
+MODEL_DIR: Final[Path] = define.CURRENT_DIR / "models"
 MODEL_FILE: Final[str] = "model"
 
 def model_required(func: Callable) -> Callable:

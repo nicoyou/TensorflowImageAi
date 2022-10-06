@@ -1,3 +1,4 @@
+from . import ai
 import datetime
 import glob
 import os
@@ -6,10 +7,6 @@ import time
 from pathlib import Path
 from typing import Any, Final
 
-CURRENT_DIR: Final[Path] = Path(__file__).parent
-os.environ["PATH"] += ";" + str(CURRENT_DIR / "dll")			# 環境変数に一時的に dll のパスを追加する
-os.environ["XLA_FLAGS"] = f"--xla_gpu_cuda_data_dir={str(CURRENT_DIR / 'CUDA')}"
-
 import matplotlib
 import nlib3
 import numpy as np
@@ -17,8 +14,7 @@ import PIL
 import tensorflow as tf
 from matplotlib import pyplot as plt
 
-from . import define
-from . import make_pix2pix_image
+from . import define, make_pix2pix_image
 
 
 class PixToPixModel():
@@ -135,8 +131,8 @@ class PixToPixModel():
 		return tf.keras.Model(inputs=[inp, tar], outputs=last)
 
 class PixToPix():
-	MODEL_DIR = CURRENT_DIR / "models"
-	LOG_DIR = CURRENT_DIR / "logs"
+	MODEL_DIR = define.CURRENT_DIR / "models"
+	LOG_DIR = define.CURRENT_DIR / "logs"
 	CHECKPOINT_FILE_NAME = Path("ckpt")
 	MODEL_FILE_NAME = Path("model")
 	JSON_FILE_NAME = Path("model.json")
@@ -535,15 +531,15 @@ class PixToPix():
 			tf.summary.scalar("disc_loss", disc_loss, step=step // 1000)
 		return gen_total_loss, gen_gan_loss, gen_l1_loss, disc_loss
 
-	def fit(self, train_ds: Any, test_ds: Any, steps: int) -> None:
+	def train_model(self, dataset_dir: str, steps: int) -> None:
 		"""モデルの学習を行う
 
 		Args:
-			train_ds: load_dataset() 関数で読み込んだ入力画像のデータセット
-			test_ds: load_dataset() 関数で読み込んだ目的画像のデータセット
+			dataset_dir: データセットが保存されているディレクトリパス
 			steps: 実際に学習を行うステップ数
 		"""
 		STEP_INTERVAL = 1000
+		train_ds, test_ds = self.load_dataset(dataset_dir)
 		self.model_data[define.AiDataKey.train_image_num] = len(train_ds)
 		self.model_data[define.AiDataKey.test_image_num] = len(test_ds)
 
@@ -610,13 +606,17 @@ class PixToPix():
 		self.model_data = nlib3.load_json(self.MODEL_DIR / self.ai_name / self.JSON_FILE_NAME)
 		return
 
-	def show_test(self, dataset: Any) -> None:
+	def show_test(self, dataset_dir: str, use_test_ds: bool = True) -> None:
 		"""指定されたデータセットの推論結果を一つずつ順番に表示する
 
 		Args:
-			dataset: load_dataset() 関数で読み込んだ目的画像のデータセット
+			dataset_dir: データセットが保存されているディレクトリパス
+			use_test_ds: テスト用のデータを使用する
 		"""
-		for inp, tar in dataset.take(len(dataset)):
+		train_ds, test_ds = self.load_dataset(dataset_dir)
+		if not use_test_ds:
+			test_ds = train_ds
+		for inp, tar in test_ds.take(len(test_ds)):
 			self.generate_images(inp, tar)
 		return
 
@@ -650,11 +650,3 @@ class PixToPix():
 		ax.set_xlabel("Epoch")
 		plt.show()
 		return
-
-if __name__ == "__main__":
-	p2p = PixToPix("pix2pix_model_name")
-	train_dataset, test_dataset = p2p.load_dataset("dataset/p2p")
-	# p2p.load_model()
-	# p2p.show_history()
-	# p2p.show_test(test_dataset)
-	p2p.fit(train_dataset, test_dataset, steps=50000000)

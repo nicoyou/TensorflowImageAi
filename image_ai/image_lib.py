@@ -53,7 +53,7 @@ def image_to_pillow(image: Any) -> Any | None:
 		return new_image
 	return None
 
-def image_display(images: tuple | list) -> None:
+def display_images(images: tuple | list) -> None:
 	"""複数のの画像を同時に描画する
 
 	Args:

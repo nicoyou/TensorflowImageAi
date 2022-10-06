@@ -1,4 +1,5 @@
 import enum
+from pathlib import Path
 from typing import Final
 
 
@@ -50,3 +51,4 @@ class PersonDataKey(str, enum.Enum):
 
 
 RANDOM_SEED: Final[int] = 54
+CURRENT_DIR: Final[Path] = Path(__file__).parent
