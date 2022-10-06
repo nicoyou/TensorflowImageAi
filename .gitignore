@@ -3,14 +3,14 @@ __pycache__
 /anime_face_detector/LICENSE
 
 # tensorflow GPUで使用するdll
-/dll/
-/CUDA/
+/image_ai/dll/
+/image_ai/CUDA/
 # 学習用のデータセット
 /dataset/
 *.csv
 # モデルの学習状態を保存する
 /image_ai/models/
-/logs/
+/image_ai/logs/
 # ログを出力するディレクトリ
 /data/
 # テスト段階のプログラム
