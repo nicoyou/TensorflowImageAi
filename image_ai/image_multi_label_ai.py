@@ -147,7 +147,7 @@ class ImageMultiLabelAi(ai.Ai):
         return class_image_num, dataset.class_indices
 
     @ai.model_required
-    def inference(self, image: str | tf.Tensor) -> list:
+    def inference(self, image: str | Path | tf.Tensor) -> list:
         """画像を指定して推論する
 
         Args:
@@ -156,7 +156,7 @@ class ImageMultiLabelAi(ai.Ai):
         Returns:
             各ラベルの確立を格納したリスト
         """
-        if type(image) is str:
+        if isinstance(image, (str, Path)):
             image = self.preprocess_image(image, self.get_normalize_flag())
         result = self.model(image)		
         return [float(row) for row in result[0]]

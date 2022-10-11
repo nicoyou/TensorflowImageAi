@@ -149,7 +149,7 @@ class ImageRegressionAi(ai.Ai):
         return list(image_num.values()), class_indices
 
     @ai.model_required
-    def inference(self, image: str | tf.Tensor) -> float:
+    def inference(self, image: str | Path | tf.Tensor) -> float:
         """画像を指定して推論する
 
         Args:
@@ -158,7 +158,7 @@ class ImageRegressionAi(ai.Ai):
         Returns:
             推論結果
         """
-        if type(image) is str:
+        if isinstance(image, (str, Path)):
             image = self.preprocess_image(image, self.get_normalize_flag())
         result = self.model(image)
         return float(result[0])
