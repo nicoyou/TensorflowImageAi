@@ -60,7 +60,7 @@ class ImageClassificationAi(ai.Ai):
         )
 
         if not trainable:
-            for layer in model.layers[:762]:
+            for layer in model.layers[:779]:
                 layer.trainable = False
 
         model.compile(
@@ -160,7 +160,7 @@ class ImageClassificationAi(ai.Ai):
         return class_image_num, dataset.class_indices
 
     @ai.model_required
-    def inference(self, image: str | Path | tf.Tensor) -> list:
+    def predict(self, image: str | Path | tf.Tensor) -> list:
         """画像を指定して推論する
 
         Args:
@@ -179,7 +179,7 @@ class ImageClassificationAi(ai.Ai):
         """推論結果のリストをクラス名に変換する
 
         Args:
-            result: inference 関数で得た推論結果
+            result: predict 関数で得た推論結果
 
         Returns:
             クラス名

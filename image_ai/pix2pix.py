@@ -205,7 +205,7 @@ class PixToPix():
         tf_image = (tf_image / 127.5) - 1
         return tf.expand_dims(tf_image, 0)
 
-    def inference(self, input_img: tf.Tensor) -> tf.Tensor:
+    def predict(self, input_img: tf.Tensor) -> tf.Tensor:
         """現在保持しているモデルで画像の推論を行う
 
         Args:
@@ -216,7 +216,7 @@ class PixToPix():
         """
         return self.generator(input_img, training=True)
 
-    def show_inference(self, file_path: str, out_path: str = None) -> None:
+    def show_predict(self, file_path: str, out_path: str = None) -> None:
         """指定された画像の推論結果を表示する
 
         Args:
@@ -224,7 +224,7 @@ class PixToPix():
             out_path: 入力画像と出力画像の比較画像を出力するファイルパス
         """
         input_img = self.load_one_image(file_path)
-        prediction = self.inference(input_img)
+        prediction = self.predict(input_img)
         plt.figure(figsize=(12, 6))
 
         display_list = [input_img[0], prediction[0]]
@@ -246,7 +246,7 @@ class PixToPix():
         plt.close()     # windowを閉じる
         return
 
-    def inference_image(self, input_image_path: str, out_image_path: str) -> None:
+    def predict_image(self, input_image_path: str, out_image_path: str) -> None:
         """指定された画像をAIで変換して保存する
 
         Args:
@@ -255,7 +255,7 @@ class PixToPix():
         """
         pil_image = PIL.Image.open(input_image_path)        # アスペクト比を計算するために読み込む
         tf_image = self.load_one_image(input_image_path)    # 推論用に読み込む
-        tf_image = self.inference(tf_image)
+        tf_image = self.predict(tf_image)
         tf_image = (tf_image[0] + 1) * 127.5
 
         result_image = PIL.Image.fromarray(tf_image.numpy().astype(np.uint8))

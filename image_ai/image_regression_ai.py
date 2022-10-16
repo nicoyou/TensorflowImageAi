@@ -76,7 +76,7 @@ class ImageRegressionAi(ai.Ai):
         )
 
         if not trainable:
-            for layer in model.layers[:762]:
+            for layer in model.layers[:779]:
                 layer.trainable = False
 
         model.compile(
@@ -149,7 +149,7 @@ class ImageRegressionAi(ai.Ai):
         return list(image_num.values()), class_indices
 
     @ai.model_required
-    def inference(self, image: str | Path | tf.Tensor) -> float:
+    def predict(self, image: str | Path | tf.Tensor) -> float:
         """画像を指定して推論する
 
         Args:

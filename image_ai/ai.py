@@ -205,7 +205,7 @@ class Ai(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     @model_required
-    def inference():
+    def predict():
         """画像のファイルパスを指定して推論する"""
 
     def show_history(self) -> None:

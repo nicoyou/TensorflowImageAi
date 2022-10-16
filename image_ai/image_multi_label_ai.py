@@ -74,7 +74,7 @@ class ImageMultiLabelAi(ai.Ai):
         )
 
         if not trainable:
-            for layer in model.layers[:762]:
+            for layer in model.layers[:779]:
                 layer.trainable = False
 
         model.compile(
@@ -147,7 +147,7 @@ class ImageMultiLabelAi(ai.Ai):
         return class_image_num, dataset.class_indices
 
     @ai.model_required
-    def inference(self, image: str | Path | tf.Tensor) -> list:
+    def predict(self, image: str | Path | tf.Tensor) -> list:
         """画像を指定して推論する
 
         Args:
@@ -166,7 +166,7 @@ class ImageMultiLabelAi(ai.Ai):
         """推論結果のリストをラベル名のリストに変換する
 
         Args:
-            result: inference 関数で得た推論結果
+            result: predict 関数で得た推論結果
             border: ラベルを有効だとみなす最低値
 
         Returns:
@@ -180,7 +180,7 @@ class ImageMultiLabelAi(ai.Ai):
         """推論結果のリストをラベル名をキーとした辞書に変換する
 
         Args:
-            result: inference 関数で得た推論結果
+            result: predict 関数で得た推論結果
 
         Returns:
             辞書に変換された推論結果
@@ -204,7 +204,7 @@ class ImageMultiLabelAi(ai.Ai):
         for i, row in enumerate(test_ds):
             fig = plt.figure(figsize=(16, 9))
             for j in range(len(row[0])):			# 最大12の画像数
-                result = self.inference(tf.expand_dims(row[0][j], 0))
+                result = self.predict(tf.expand_dims(row[0][j], 0))
                 result = self.result_to_label_dict(result)
                 result_true = self.result_to_label_dict(row[1][j])
                 result = [[k, v] for k, v in result.items()]
