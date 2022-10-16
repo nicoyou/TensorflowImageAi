@@ -15,7 +15,7 @@ from PIL import ImageFile
 
 from . import tf_callback
 
-__version__: Final[str] = "1.2.0"
+__version__: Final[str] = "1.3.0"
 MODEL_DIR: Final[Path] = define.CURRENT_DIR / "models"
 MODEL_FILE: Final[str] = "model"
 
