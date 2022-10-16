@@ -10,5 +10,11 @@ nlib3
 pandas
 # Data preprocessing relations
 scipy
+
+# Model diagram output
+pydot
+pydotplus
+graphviz
+
 # ResNet-RS trained model
 git+https://github.com/sebastian-sz/resnet-rs-keras@main

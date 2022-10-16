@@ -1,4 +1,5 @@
 from . import ai
+
 from pathlib import Path
 from typing import Any
 
@@ -8,6 +9,7 @@ import numpy as np
 import pandas
 import resnet_rs
 import tensorflow as tf
+import nlib3
 
 from . import define
 
@@ -16,7 +18,25 @@ class ImageMultiLabelAi(ai.Ai):
     """多ラベル分類AI"""
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(define.AiType.multi_label, *args, **kwargs)
+        self.y_col_name = "labels"
         return
+
+    def compile_model(self, model: Any, learning_rate: float=0.0002):
+        """モデルを多ラベル問題に最適なパラメータでコンパイルする
+
+        Args:
+            model: 未コンパイルのモデル
+            learning_rate: 学習率
+
+        Returns:
+            コンパイル後のモデル
+        """
+        model.compile(
+            loss="binary_crossentropy",
+            optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),
+            metrics=[self.accuracy]
+        )
+        return model
 
     def create_model(self, model_type: define.ModelType, num_classes: int, trainable: bool = False) -> Any | None:
         """多ラベル分類モデルを作成する
@@ -30,8 +50,14 @@ class ImageMultiLabelAi(ai.Ai):
             tensorflow のモデル
         """
         match model_type:
+            case define.ModelType.resnet_rs152_256_multi_label:
+                return self.create_model_resnet_rs_256(num_classes, trainable)
             case define.ModelType.resnet_rs152_512x2_multi_label:
-                return self.create_model_resnet_rs(num_classes, trainable)
+                return self.create_model_resnet_rs_512x2(num_classes, trainable)
+            case define.ModelType.efficient_net_v2_b0_multi_label:
+                return self.create_model_efficient_net_v2_b0(num_classes, trainable)
+            case define.ModelType.efficient_net_v2_s_multi_label:
+                return self.create_model_efficient_net_v2_s(num_classes, trainable)
         return None
 
     @staticmethod
@@ -49,7 +75,36 @@ class ImageMultiLabelAi(ai.Ai):
         flag = backend.cast(backend.equal(y_true, pred), tf.float32)
         return backend.mean(flag, axis=-1)
 
-    def create_model_resnet_rs(self, num_classes: int, trainable: bool) -> Any:
+    def create_model_resnet_rs_256(self, num_classes: int, trainable: bool) -> Any:
+        """ResNet_RSの転移学習モデルを作成する
+
+        Args:
+            num_classes: 分類するクラスの数
+            trainable: 特徴量抽出部を再学習するかどうか
+
+        Returns:
+            tensorflow のモデル
+        """
+        resnet = resnet_rs.ResNetRS152(include_top=False, input_shape=define.DEFAULT_INPUT_SHAPE, weights="imagenet-i224")
+
+        x = tf.keras.layers.Flatten(input_shape=resnet.output_shape[1:])(resnet.output)
+        x = tf.keras.layers.Dense(256, activation="relu")(x)
+        x = tf.keras.layers.Dropout(0.25)(x)
+
+        output = tf.keras.layers.Dense(num_classes, activation="sigmoid")(x)
+
+        model = tf.keras.models.Model(
+            inputs=resnet.input,
+            outputs=output
+        )
+
+        if not trainable:
+            for layer in model.layers[:779]:
+                layer.trainable = False
+
+        return self.model_compile(model)
+
+    def create_model_resnet_rs_512x2(self, num_classes: int, trainable: bool) -> Any:
         """ResNet_RSの転移学習モデルを作成する
 
         Args:
@@ -59,7 +114,7 @@ class ImageMultiLabelAi(ai.Ai):
         Returns:
             tensorflow のモデル
         """
-        resnet = resnet_rs.ResNetRS152(include_top=False, input_shape=(self.img_height, self.img_width, 3), weights="imagenet-i224")
+        resnet = resnet_rs.ResNetRS152(include_top=False, input_shape=define.DEFAULT_INPUT_SHAPE, weights="imagenet-i224")
 
         top_model = tf.keras.Sequential()
         top_model.add(tf.keras.layers.Flatten(input_shape=resnet.output_shape[1:]))
@@ -74,15 +129,40 @@ class ImageMultiLabelAi(ai.Ai):
         )
 
         if not trainable:
-            for layer in model.layers[:762]:
+            for layer in model.layers[:779]:
                 layer.trainable = False
 
-        model.compile(
-            loss="binary_crossentropy",
-            optimizer=tf.keras.optimizers.Adam(learning_rate=0.0002),
-            metrics=[self.accuracy]
-        )
-        return model
+        return self.model_compile(model)
+
+    def create_model_efficient_net_v2_b0(self, num_classes: int, trainable: bool) -> Any:
+        """EfficientNetV2B0の転移学習モデルを作成する
+
+        Args:
+            num_classes: 分類するクラスの数
+            trainable: 特徴量抽出部を再学習するかどうか
+
+        Returns:
+            tensorflow のモデル
+        """
+        if not trainable:
+            nlib3.print_error_log("EfficientNetV2 モデルでは trainable に False を指定できません")
+        model = tf.keras.applications.EfficientNetV2B0(weights=None, classes=num_classes, classifier_activation="sigmoid")
+        return self.compile_model(model, 0.001)
+
+    def create_model_efficient_net_v2_s(self, num_classes: int, trainable: bool) -> Any:
+        """EfficientNetV2Sの転移学習モデルを作成する
+
+        Args:
+            num_classes: 分類するクラスの数
+            trainable: 特徴量抽出部を再学習するかどうか
+
+        Returns:
+            tensorflow のモデル
+        """
+        if not trainable:
+            nlib3.print_error_log("EfficientNetV2 モデルでは trainable に False を指定できません")
+        model = tf.keras.applications.EfficientNetV2S(weights=None, classes=num_classes, classifier_activation="sigmoid")
+        return self.compile_model(model, 0.001)
 
     def create_dataset(self, data_csv_path: str, batch_size: int, normalize: bool = False) -> tuple:
         """訓練用のデータセットを読み込む
@@ -96,29 +176,33 @@ class ImageMultiLabelAi(ai.Ai):
             train_ds: 訓練用のデータセット
             val_ds: テスト用のデータセット
         """
-        Y_LABELS = "labels"
         generator = self.create_generator(normalize)
         df = pandas.read_csv(data_csv_path)
-        df[Y_LABELS] = df[Y_LABELS].str.split(",")				# 複数のラベルを格納している列は文字列からリストに変換する
+        df = df.dropna(subset=[self.y_col_name])                # 空の行を取り除く
+        df[self.y_col_name] = df[self.y_col_name].str.split(",")				# 複数のラベルを格納している列は文字列からリストに変換する
         df = df.sample(frac=1, random_state=0)					# ランダムに並び変える
         train_ds = generator.flow_from_dataframe(
             df,
             directory=str(Path(data_csv_path).parent),			# csv ファイルが保存されていたディレクトリを画像ファイルの親ディレクトリにする
-            y_col=Y_LABELS,
-            target_size=(self.img_height, self.img_width),
+            y_col=self.y_col_name,
+            target_size=(self.image_size.y, self.image_size.x),
             batch_size=batch_size,
             seed=define.RANDOM_SEED,
             class_mode="categorical",
-            subset="training")
+            subset="training",
+            validate_filenames=False,               # パスチェックを行わない
+        )
         val_ds = generator.flow_from_dataframe(
             df,
             directory=str(Path(data_csv_path).parent),
-            y_col=Y_LABELS,
-            target_size=(self.img_height, self.img_width),
+            y_col=self.y_col_name,
+            target_size=(self.image_size.y, self.image_size.x),
             batch_size=batch_size,
             seed=define.RANDOM_SEED,
             class_mode="categorical",
-            subset="validation")
+            subset="validation",
+            validate_filenames=False,               # パスチェックを行わない
+        )
         return train_ds, val_ds		# [[[img*batch], [class*batch]], ...] の形式
 
     def count_image_from_dataset(self, dataset: Any) -> tuple:
@@ -146,8 +230,22 @@ class ImageMultiLabelAi(ai.Ai):
         dataset.reset()
         return class_image_num, dataset.class_indices
 
+    def init_model_type(self, model_type: define.ModelType) -> None:
+        """モデルの種類に応じてパラメータを初期化する
+
+        Args:
+            model_type: モデルの種類
+        """
+        match(model_type):
+            case define.ModelType.efficient_net_v2_b0_multi_label:
+                self.need_image_normalization = False
+            case define.ModelType.efficient_net_v2_s_multi_label:
+                self.need_image_normalization = False
+                self.image_size.set(384, 384)
+        return
+
     @ai.model_required
-    def inference(self, image: str | Path | tf.Tensor) -> list:
+    def predict(self, image: str | Path | tf.Tensor) -> list:
         """画像を指定して推論する
 
         Args:
@@ -157,8 +255,8 @@ class ImageMultiLabelAi(ai.Ai):
             各ラベルの確立を格納したリスト
         """
         if isinstance(image, (str, Path)):
-            image = self.preprocess_image(image, self.get_normalize_flag())
-        result = self.model(image)		
+            image = self.preprocess_image(image, self.need_image_normalization)
+        result = self.model(image)
         return [float(row) for row in result[0]]
 
     @ai.model_required
@@ -166,7 +264,7 @@ class ImageMultiLabelAi(ai.Ai):
         """推論結果のリストをラベル名のリストに変換する
 
         Args:
-            result: inference 関数で得た推論結果
+            result: predict 関数で得た推論結果
             border: ラベルを有効だとみなす最低値
 
         Returns:
@@ -180,7 +278,7 @@ class ImageMultiLabelAi(ai.Ai):
         """推論結果のリストをラベル名をキーとした辞書に変換する
 
         Args:
-            result: inference 関数で得た推論結果
+            result: predict 関数で得た推論結果
 
         Returns:
             辞書に変換された推論結果
@@ -197,20 +295,23 @@ class ImageMultiLabelAi(ai.Ai):
             max_loop_num: 結果を表示する最大回数 ( 1 回につき複数枚の画像が表示される )
             use_val_ds: データセットから訓練用の画像を使用するかどうか ( False でテスト用データを使用する )
         """
-        train_ds, test_ds = self.create_dataset(data_csv_path, 12, normalize=self.get_normalize_flag())		# バッチサイズを表示する画像数と同じにする
+        train_ds, test_ds = self.create_dataset(data_csv_path, 12, normalize=self.need_image_normalization)		# バッチサイズを表示する画像数と同じにする
         if not use_val_ds:
             test_ds = train_ds
 
         for i, row in enumerate(test_ds):
             fig = plt.figure(figsize=(16, 9))
             for j in range(len(row[0])):			# 最大12の画像数
-                result = self.inference(tf.expand_dims(row[0][j], 0))
+                result = self.predict(tf.expand_dims(row[0][j], 0))
                 result = self.result_to_label_dict(result)
                 result_true = self.result_to_label_dict(row[1][j])
                 result = [[k, v] for k, v in result.items()]
                 result = sorted(result, reverse=True, key=lambda x: x[1])			# 確率が高いものから順に表示する
                 ax = fig.add_subplot(3, 8, j * 2 + 1)
-                ax.imshow(row[0][j])
+                if self.need_image_normalization:
+                    ax.imshow(row[0][j])
+                else:
+                    ax.imshow(tf.cast(row[0][j], tf.int32))
                 ax = fig.add_subplot(3, 8, j * 2 + 2)
                 for iy, (k, v) in enumerate(result[:10]):
                     if v < 0.01:								# 確率が 1 % 以下のものは表示しない
@@ -226,4 +327,13 @@ class ImageMultiLabelAi(ai.Ai):
             plt.show()
             if i == len(test_ds) - 1 or i == max_loop_num - 1:												# 表示した回数がバッチ数を超えたら終了する
                 break
+        return
+
+    def set_y_col_name(self, y_col_name: str) -> None:
+        """データセットの実際に使用するデータの列名を登録する
+
+        Args:
+            y_col_name: 列名
+        """
+        self.y_col_name = y_col_name
         return

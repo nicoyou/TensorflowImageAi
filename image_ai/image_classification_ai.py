@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import resnet_rs
 import tensorflow as tf
+import nlib3
 
 from . import define
 
@@ -16,6 +17,23 @@ class ImageClassificationAi(ai.Ai):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(define.AiType.categorical, *args, **kwargs)
         return
+
+    def compile_model(self, model: Any, learning_rate: float=0.0002):
+        """モデルを分類問題に最適なパラメータでコンパイルする
+
+        Args:
+            model: 未コンパイルのモデル
+            learning_rate: 学習率
+
+        Returns:
+            コンパイル後のモデル
+        """
+        model.compile(
+            loss="categorical_crossentropy",
+            optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),
+            metrics=["accuracy"],
+        )
+        return model
 
     def create_model(self, model_type: define.ModelType, num_classes: int, trainable: bool = False) -> Any | None:
         """画像分類モデルを作成する
@@ -31,44 +49,17 @@ class ImageClassificationAi(ai.Ai):
         match model_type:
             case define.ModelType.vgg16_512:
                 return self.create_model_vgg16(num_classes, trainable)
+            case define.ModelType.mobile_net_v2:
+                return self.create_model_mobile_net_v2(num_classes, trainable)
+            case define.ModelType.resnet_rs152_256:
+                return self.create_model_resnet_rs_256(num_classes, trainable)
             case define.ModelType.resnet_rs152_512x2:
-                return self.create_model_resnet_rs(num_classes, trainable)
+                return self.create_model_resnet_rs_512x2(num_classes, trainable)
+            case define.ModelType.efficient_net_v2_b0:
+                return self.create_model_efficient_net_v2_b0(num_classes, trainable)
+            case define.ModelType.efficient_net_v2_s:
+                return self.create_model_efficient_net_v2_s(num_classes, trainable)
         return None
-
-    def create_model_resnet_rs(self, num_classes: int, trainable: bool) -> Any:
-        """ResNet_RSの転移学習モデルを作成する
-
-        Args:
-            num_classes: 分類するクラスの数
-            trainable: 特徴量抽出部を再学習するかどうか
-
-        Returns:
-            tensorflow のモデル
-        """
-        resnet = resnet_rs.ResNetRS152(include_top=False, input_shape=(self.img_height, self.img_width, 3), weights="imagenet-i224")
-
-        top_model = tf.keras.Sequential()
-        top_model.add(tf.keras.layers.Flatten(input_shape=resnet.output_shape[1:]))
-        top_model.add(tf.keras.layers.Dense(512, activation="relu"))
-        top_model.add(tf.keras.layers.Dense(512, activation="relu"))
-        top_model.add(tf.keras.layers.Dropout(0.25))
-        top_model.add(tf.keras.layers.Dense(num_classes, activation="softmax"))
-
-        model = tf.keras.models.Model(
-            inputs=resnet.input,
-            outputs=top_model(resnet.output)
-        )
-
-        if not trainable:
-            for layer in model.layers[:762]:
-                layer.trainable = False
-
-        model.compile(
-            loss="categorical_crossentropy",
-            optimizer=tf.keras.optimizers.Adam(learning_rate=0.0002),
-            metrics=["accuracy"]
-        )
-        return model
 
     def create_model_vgg16(self, num_classes: int, trainable: bool) -> Any:
         """vgg16の転移学習モデルを作成する
@@ -80,9 +71,9 @@ class ImageClassificationAi(ai.Ai):
         Returns:
             tensorflow のモデル
         """
-        vgg16 = tf.keras.applications.vgg16.VGG16(include_top=False, input_shape=(self.img_height, self.img_width, 3))
+        vgg16 = tf.keras.applications.vgg16.VGG16(include_top=False, input_shape=define.DEFAULT_INPUT_SHAPE)
 
-        top_model =  tf.keras.Sequential()
+        top_model = tf.keras.Sequential()
         top_model.add(tf.keras.layers.Flatten(input_shape=vgg16.output_shape[1:]))
         top_model.add(tf.keras.layers.Dense(512, activation="relu"))
         top_model.add(tf.keras.layers.Dropout(0.25))
@@ -97,13 +88,114 @@ class ImageClassificationAi(ai.Ai):
             for layer in model.layers[:15]:
                 layer.trainable = False
 
-        # 最適化アルゴリズムをSGD ( 確率的勾配降下法 ) として最適化の学習率と修正幅を指定してコンパイルする
-        model.compile(
-            loss="categorical_crossentropy",
-            optimizer=tf.keras.optimizers.Adam(learning_rate=0.0001),
-            metrics=["accuracy"]
+        return self.compile_model(model, 0.0001)
+
+    def create_model_mobile_net_v2(self, num_classes: int, trainable: bool) -> Any:
+        """MobileNetV2の転移学習モデルを作成する
+
+        Args:
+            num_classes: 分類するクラスの数
+            trainable: 特徴量抽出部を再学習するかどうか
+
+        Returns:
+            tensorflow のモデル
+        """
+        mobile_net_v2 = tf.keras.applications.mobilenet_v2.MobileNetV2(classes=num_classes, weights=None)
+
+        if not trainable:
+            for layer in mobile_net_v2.layers[:154]:
+                layer.trainable = False
+
+        return self.compile_model(mobile_net_v2, 0.001)
+
+    def create_model_resnet_rs_256(self, num_classes: int, trainable: bool) -> Any:
+        """ResNet_RSの転移学習モデルを作成する
+
+        Args:
+            num_classes: 分類するクラスの数
+            trainable: 特徴量抽出部を再学習するかどうか
+
+        Returns:
+            tensorflow のモデル
+        """
+        resnet = resnet_rs.ResNetRS152(include_top=False, input_shape=define.DEFAULT_INPUT_SHAPE, weights="imagenet-i224")
+
+        x = tf.keras.layers.Flatten(input_shape=resnet.output_shape[1:])(resnet.output)
+        x = tf.keras.layers.Dense(256, activation="relu")(x)
+        x = tf.keras.layers.Dropout(0.25)(x)
+
+        output = tf.keras.layers.Dense(num_classes, activation="softmax")(x)
+
+        model = tf.keras.models.Model(
+            inputs=resnet.input,
+            outputs=output
         )
-        return model
+
+        if not trainable:
+            for layer in model.layers[:779]:
+                layer.trainable = False
+
+        return self.compile_model(model)
+
+    def create_model_resnet_rs_512x2(self, num_classes: int, trainable: bool) -> Any:
+        """ResNet_RSの転移学習モデルを作成する
+
+        Args:
+            num_classes: 分類するクラスの数
+            trainable: 特徴量抽出部を再学習するかどうか
+
+        Returns:
+            tensorflow のモデル
+        """
+        resnet = resnet_rs.ResNetRS152(include_top=False, input_shape=define.DEFAULT_INPUT_SHAPE, weights="imagenet-i224")
+
+        top_model = tf.keras.Sequential()
+        top_model.add(tf.keras.layers.Flatten(input_shape=resnet.output_shape[1:]))
+        top_model.add(tf.keras.layers.Dense(512, activation="relu"))
+        top_model.add(tf.keras.layers.Dense(512, activation="relu"))
+        top_model.add(tf.keras.layers.Dropout(0.25))
+        top_model.add(tf.keras.layers.Dense(num_classes, activation="softmax"))
+
+        model = tf.keras.models.Model(
+            inputs=resnet.input,
+            outputs=top_model(resnet.output)
+        )
+
+        if not trainable:
+            for layer in model.layers[:779]:
+                layer.trainable = False
+
+        return self.compile_model(model)
+
+    def create_model_efficient_net_v2_b0(self, num_classes: int, trainable: bool) -> Any:
+        """EfficientNetV2B0の転移学習モデルを作成する
+
+        Args:
+            num_classes: 分類するクラスの数
+            trainable: 特徴量抽出部を再学習するかどうか
+
+        Returns:
+            tensorflow のモデル
+        """
+        if not trainable:
+            nlib3.print_error_log("EfficientNetV2 モデルでは trainable に False を指定できません")
+        model = tf.keras.applications.EfficientNetV2B0(weights=None, classes=num_classes)
+        return self.compile_model(model, 0.001)
+
+    def create_model_efficient_net_v2_s(self, num_classes: int, trainable: bool) -> Any:
+        """EfficientNetV2Sの転移学習モデルを作成する
+
+        Args:
+            num_classes: 分類するクラスの数
+            trainable: 特徴量抽出部を再学習するかどうか
+
+        Returns:
+            tensorflow のモデル
+        """
+        if not trainable:
+            nlib3.print_error_log("EfficientNetV2 モデルでは trainable に False を指定できません")
+        model = tf.keras.applications.EfficientNetV2S(weights=None, classes=num_classes)
+        return self.compile_model(model, 0.001)
 
     def create_dataset(self, dataset_path: str, batch_size: int, normalize: bool = False) -> tuple:
         """訓練用のデータセットを読み込む
@@ -120,14 +212,14 @@ class ImageClassificationAi(ai.Ai):
         generator = self.create_generator(normalize)
         train_ds = generator.flow_from_directory(
             dataset_path,
-            target_size = (self.img_height, self.img_width),
+            target_size = (self.image_size.y, self.image_size.x),
             batch_size = batch_size,
             seed=define.RANDOM_SEED,
             class_mode="categorical",
             subset = "training")
         val_ds = generator.flow_from_directory(
             dataset_path,
-            target_size = (self.img_height, self.img_width),
+            target_size = (self.image_size.y, self.image_size.x),
             batch_size = batch_size,
             seed=define.RANDOM_SEED,
             class_mode="categorical",
@@ -159,8 +251,24 @@ class ImageClassificationAi(ai.Ai):
         dataset.reset()
         return class_image_num, dataset.class_indices
 
+    def init_model_type(self, model_type: define.ModelType) -> None:
+        """モデルの種類に応じてパラメータを初期化する
+
+        Args:
+            model_type: モデルの種類
+        """
+        match(model_type):
+            case define.ModelType.vgg16_512:
+                self.need_image_normalization = False
+            case define.ModelType.efficient_net_v2_b0:
+                self.need_image_normalization = False
+            case define.ModelType.efficient_net_v2_s:
+                self.need_image_normalization = False
+                self.image_size.set(384, 384)
+        return
+
     @ai.model_required
-    def inference(self, image: str | Path | tf.Tensor) -> list:
+    def predict(self, image: str | Path | tf.Tensor) -> list:
         """画像を指定して推論する
 
         Args:
@@ -170,8 +278,8 @@ class ImageClassificationAi(ai.Ai):
             各クラスの確立を格納したリスト
         """
         if isinstance(image, (str, Path)):
-            image = self.preprocess_image(image, self.get_normalize_flag())
-        result = self.model(image)		
+            image = self.preprocess_image(image, self.need_image_normalization)
+        result = self.model(image)
         return [float(row) for row in result[0]]
 
     @ai.model_required
@@ -179,7 +287,7 @@ class ImageClassificationAi(ai.Ai):
         """推論結果のリストをクラス名に変換する
 
         Args:
-            result: inference 関数で得た推論結果
+            result: predict 関数で得た推論結果
 
         Returns:
             クラス名
@@ -196,7 +304,7 @@ class ImageClassificationAi(ai.Ai):
             max_loop_num: 結果を表示する最大回数 ( 1 回につき複数枚の画像が表示される )
             use_val_ds: データセットから訓練用の画像を使用するかどうか ( False でテスト用データを使用する )
         """
-        train_ds, test_ds = self.create_dataset(dataset_path, 12, normalize=self.get_normalize_flag())		# バッチサイズを表示する画像数と同じにする
+        train_ds, test_ds = self.create_dataset(dataset_path, 12, normalize=self.need_image_normalization)		# バッチサイズを表示する画像数と同じにする
         if not use_val_ds:
             test_ds = train_ds
 
@@ -206,7 +314,10 @@ class ImageClassificationAi(ai.Ai):
             for j in range(len(row[0])):			# 最大12の画像数
                 result = self.model(tf.expand_dims(row[0][j], 0))[0]
                 ax = fig.add_subplot(3, 8, j * 2 + 1)
-                ax.imshow(row[0][j])
+                if self.need_image_normalization:
+                    ax.imshow(row[0][j])
+                else:
+                    ax.imshow(tf.cast(row[0][j], tf.int32))
                 ax = fig.add_subplot(3, 8, j * 2 + 2)
                 color = "blue"
                 if list(row[1][j]).index(1) != list(result).index(max(result)):
@@ -230,7 +341,7 @@ class ImageClassificationAi(ai.Ai):
             間違えた推論結果と本来のクラスを格納したタプルのリスト
             [(推論結果, 解答), (推論結果, 解答)...]
         """
-        train_ds, test_ds = self.create_dataset(dataset_path, 8, normalize=self.get_normalize_flag())
+        train_ds, test_ds = self.create_dataset(dataset_path, 8, normalize=self.need_image_normalization)
         result_list = []
         if not use_val_ds:
             test_ds = train_ds

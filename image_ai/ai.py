@@ -12,12 +12,9 @@ import matplotlib.pyplot as plt
 import nlib3
 import tensorflow as tf
 from PIL import ImageFile
+from tensorflow.keras.utils import plot_model
 
 from . import tf_callback
-
-__version__: Final[str] = "1.3.0"
-MODEL_DIR: Final[Path] = define.CURRENT_DIR / "models"
-MODEL_FILE: Final[str] = "model"
 
 
 def model_required(func: Callable) -> Callable:
@@ -45,12 +42,12 @@ class Ai(metaclass=abc.ABCMeta):
             model_name: 管理するAIの名前 ( 保存、読み込み用 )
         """
         ImageFile.LOAD_TRUNCATED_IMAGES = True  # 高速にロードできない画像も読み込む
+        self.need_image_normalization = True
         self.model = None
         self.model_data = None
         self.model_name = model_name
         self.ai_type = ai_type
-        self.img_height = 224
-        self.img_width = 224
+        self.image_size = nlib3.Vector2(define.DEFAULT_IMAGE_SIZE, define.DEFAULT_IMAGE_SIZE)
         return
 
     def preprocess_image(self, img_path: Path | str, normalize: bool = False) -> tf.Tensor:
@@ -65,7 +62,7 @@ class Ai(metaclass=abc.ABCMeta):
         """
         img_raw = tf.io.read_file(str(img_path))
         image = tf.image.decode_image(img_raw, channels=3)
-        image = tf.image.resize(image, (self.img_height, self.img_width))
+        image = tf.image.resize(image, (self.image_size.y, self.image_size.x))
         if normalize:
             image /= 255.0                  # normalize to [0,1] range
         image = tf.expand_dims(image, 0)    # 次元を一つ増やしてバッチ化する
@@ -82,28 +79,11 @@ class Ai(metaclass=abc.ABCMeta):
             画像のテンソル
         """
         tf.keras.preprocessing.image.img_to_array(image)
-        image = tf.image.resize(image, (self.img_height, self.img_width))
+        image = tf.image.resize(image, (self.image_size.y, self.image_size.x))
         if normalize:
             image /= 255.0                  # normalize to [0,1] range
         image = tf.expand_dims(image, 0)    # 次元を一つ増やしてバッチ化する
         return image
-
-    def get_normalize_flag(self, model_type: define.ModelType = define.ModelType.unknown) -> bool:
-        """画像の前処理として正規化を実行するかを判断する
-
-        Args:
-            model_type:
-                正規化が必要かどうかを確認するモデル
-                すでにクラスがモデルデータを保持している場合は不要
-
-        Returns:
-            正規化が必要かどうか
-        """
-        normalize = True
-        no_normalize_model = [define.ModelType.vgg16_512]
-        if (self.model_data is not None and self.model_data[define.AiDataKey.model] in no_normalize_model) or model_type in no_normalize_model:
-            normalize = False
-        return normalize
 
     def create_generator(self, normalize: bool) -> tf.keras.preprocessing.image.ImageDataGenerator:
         """データセットの前処理を行うジェネレーターを作成する
@@ -131,12 +111,22 @@ class Ai(metaclass=abc.ABCMeta):
         """訓練用とテスト用のデータセットを作成する"""
 
     @abc.abstractmethod
+    def compile_model():
+        """モデルを最適なパラメータでコンパイルする
+        """
+
+    @abc.abstractmethod
     def create_model():
         """AIのモデルを作成する"""
 
     @abc.abstractmethod
     def count_image_from_dataset():
         """データセットに含まれるクラスごとの画像の数を取得する"""
+
+    @abc.abstractmethod
+    def init_model_type(self, model_type: define.ModelType) -> None:
+        """モデルの種類に応じてパラメータを初期化する"""
+        return
 
     def train_model(self, dataset_path: str, epochs: int = 6, batch_size: int = 32, model_type: define.ModelType = define.ModelType.unknown, trainable: bool = False) -> dict:
         """ディープラーニングを実行する
@@ -156,7 +146,8 @@ class Ai(metaclass=abc.ABCMeta):
         Returns:
             学習を行ったモデルの情報
         """
-        train_ds, val_ds = self.create_dataset(dataset_path, batch_size, normalize=self.get_normalize_flag(model_type))
+        self.init_model_type(model_type)
+        train_ds, val_ds = self.create_dataset(dataset_path, batch_size, normalize=self.need_image_normalization)
 
         class_image_num, class_indices = self.count_image_from_dataset(train_ds)
         val_class_image_num, val_class_indices = self.count_image_from_dataset(val_ds)
@@ -172,7 +163,7 @@ class Ai(metaclass=abc.ABCMeta):
 
         timetaken = tf_callback.TimeCallback()
         history = self.model.fit(train_ds, validation_data=val_ds, epochs=epochs, callbacks=[timetaken])
-        self.model.save_weights(MODEL_DIR / self.model_name / MODEL_FILE)
+        self.model.save_weights(define.MODEL_DIR / self.model_name / define.MODEL_FILE)
         self.model_data[define.AiDataKey.version] = self.MODEL_DATA_VERSION
         self.model_data[define.AiDataKey.ai_type] = self.ai_type
         self.model_data[define.AiDataKey.class_num] = len(class_indices)
@@ -186,10 +177,27 @@ class Ai(metaclass=abc.ABCMeta):
             else:
                 self.model_data[k] = v
 
-        nlib3.save_json(MODEL_DIR / self.model_name / f"{MODEL_FILE}.json", self.model_data)
+        nlib3.save_json(define.MODEL_DIR / self.model_name / f"{define.MODEL_FILE}.json", self.model_data)
         self.show_history()
         self.show_model_test(dataset_path, max_loop_num=5)
         return self.model_data.copy()
+
+    def load_model(self) -> None:
+        """学習済みニューラルネットワークの重みを読み込む
+        """
+        if self.model is None:
+            self.model_data = nlib3.load_json(define.MODEL_DIR / self.model_name / f"{define.MODEL_FILE}.json")
+            self.model = self.create_model(self.model_data[define.AiDataKey.model], self.model_data[define.AiDataKey.class_num], self.model_data[define.AiDataKey.trainable])
+            self.model.load_weights(define.MODEL_DIR / self.model_name / define.MODEL_FILE)
+            self.init_model_type(self.model_data[define.AiDataKey.model])
+        else:
+            nlib3.print_error_log("既に初期化されています")
+        return
+
+    @abc.abstractmethod
+    @model_required
+    def predict():
+        """画像のファイルパスを指定して推論する"""
 
     def show_history(self) -> None:
         """モデルの学習履歴をグラフで表示する
@@ -215,23 +223,22 @@ class Ai(metaclass=abc.ABCMeta):
         plt.show()
         return
 
-    def load_model(self) -> None:
-        """学習済みニューラルネットワークの重みを読み込む
-        """
-        if self.model is None:
-            self.model_data = nlib3.load_json(MODEL_DIR / self.model_name / f"{MODEL_FILE}.json")
-            self.model = self.create_model(self.model_data[define.AiDataKey.model], self.model_data[define.AiDataKey.class_num], self.model_data[define.AiDataKey.trainable])
-            self.model.load_weights(MODEL_DIR / self.model_name / MODEL_FILE)
-        else:
-            nlib3.print_error_log("既に初期化されています")
-        return
-
-    @abc.abstractmethod
-    @model_required
-    def inference():
-        """画像のファイルパスを指定して推論する"""
-
     @abc.abstractmethod
     @model_required
     def show_model_test():
         """テストデータの推論結果を表示する"""
+
+    @model_required
+    def export_model_figure(self) -> None:
+        """ニューラルネットワークモデルの構成図をファイルに出力する
+        """
+        plot_model(self.model, show_shapes=True, expand_nested=True, to_file=define.MODEL_DIR / self.model_name / "model.png")
+        plot_model(self.model, show_shapes=True, expand_nested=True, to_file=define.MODEL_DIR / self.model_name / "model.dot")
+        return
+
+    @model_required
+    def export_model_h5(self) -> None:
+        """モデルを h5 形式でファイルに保存する
+        """
+        self.model.save(define.MODEL_DIR / self.model_name / "model.h5")
+        return

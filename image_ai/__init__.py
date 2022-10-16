@@ -7,3 +7,5 @@ from image_ai.image_regression_ai import ImageRegressionAi
 from image_ai.pix2pix import PixToPix
 
 from image_ai.image_lib import *
+
+__version__: Final[str] = "1.4.0"

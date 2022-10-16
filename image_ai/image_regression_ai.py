@@ -1,4 +1,5 @@
 from . import ai
+
 from pathlib import Path
 from typing import Any
 
@@ -15,7 +16,25 @@ class ImageRegressionAi(ai.Ai):
     """画像の回帰分析AI"""
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(define.AiType.regression, *args, **kwargs)
+        self.y_col_name = "class"
         return
+
+    def compile_model(self, model: Any, learning_rate: float=0.0002):
+        """モデルを回帰問題に最適なパラメータでコンパイルする
+
+        Args:
+            model: 未コンパイルのモデル
+            learning_rate: 学習率
+
+        Returns:
+            コンパイル後のモデル
+        """
+        model.compile(
+            loss="mean_squared_error",
+            optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),
+            metrics=[self.accuracy]
+        )
+        return model
 
     def create_model(self, model_type: define.ModelType, num_classes: int, trainable: bool = False) -> Any:
         """画像の回帰分析モデルを作成する
@@ -29,8 +48,14 @@ class ImageRegressionAi(ai.Ai):
             tensorflow のモデル
         """
         match model_type:
+            case define.ModelType.resnet_rs152_256_regr:
+                return self.create_model_resnet_rs_256(trainable)
             case define.ModelType.resnet_rs152_512x2_regr:
-                return self.create_model_resnet_rs_regr(trainable)
+                return self.create_model_resnet_rs_512x2(trainable)
+            case define.ModelType.efficient_net_v2_b0_regr:
+                return self.create_model_efficient_net_v2_b0(trainable)
+            case define.ModelType.efficient_net_v2_s_regr:
+                return self.create_model_efficient_net_v2_s(trainable)
         return None
 
     @staticmethod
@@ -52,7 +77,36 @@ class ImageRegressionAi(ai.Ai):
         )
         return result
 
-    def create_model_resnet_rs_regr(self, trainable: bool) -> Any:
+    def create_model_resnet_rs_256(self, trainable: bool) -> Any:
+        """ResNet_RSの転移学習モデルを作成する
+
+        Args:
+            num_classes: 分類するクラスの数
+            trainable: 特徴量抽出部を再学習するかどうか
+
+        Returns:
+            tensorflow のモデル
+        """
+        resnet = resnet_rs.ResNetRS152(include_top=False, input_shape=define.DEFAULT_INPUT_SHAPE, weights="imagenet-i224")
+
+        x = tf.keras.layers.Flatten(input_shape=resnet.output_shape[1:])(resnet.output)
+        x = tf.keras.layers.Dense(256, activation="relu")(x)
+        x = tf.keras.layers.Dropout(0.25)(x)
+
+        output = tf.keras.layers.Dense(1, activation="linear")(x)
+
+        model = tf.keras.models.Model(
+            inputs=resnet.input,
+            outputs=output
+        )
+
+        if not trainable:
+            for layer in model.layers[:779]:
+                layer.trainable = False
+
+        return self.compile_model(model)
+
+    def create_model_resnet_rs_512x2(self, trainable: bool) -> Any:
         """ResNet_RSの転移学習モデルを作成する
 
         Args:
@@ -61,7 +115,7 @@ class ImageRegressionAi(ai.Ai):
         Returns:
             tensorflow のモデル
         """
-        resnet = resnet_rs.ResNetRS152(include_top=False, input_shape=(self.img_height, self.img_width, 3), weights="imagenet-i224")
+        resnet = resnet_rs.ResNetRS152(include_top=False, input_shape=define.DEFAULT_INPUT_SHAPE, weights="imagenet-i224")
 
         top_model = tf.keras.Sequential()
         top_model.add(tf.keras.layers.Flatten(input_shape=resnet.output_shape[1:]))
@@ -76,15 +130,40 @@ class ImageRegressionAi(ai.Ai):
         )
 
         if not trainable:
-            for layer in model.layers[:762]:
+            for layer in model.layers[:779]:
                 layer.trainable = False
 
-        model.compile(
-            loss="mean_squared_error",
-            optimizer=tf.keras.optimizers.Adam(learning_rate=0.00008),
-            metrics=[self.accuracy]
-        )
-        return model
+        return self.compile_model(model)
+
+    def create_model_efficient_net_v2_b0(self, trainable: bool) -> Any:
+        """EfficientNetV2B0の転移学習モデルを作成する
+
+        Args:
+            num_classes: 分類するクラスの数
+            trainable: 特徴量抽出部を再学習するかどうか
+
+        Returns:
+            tensorflow のモデル
+        """
+        if not trainable:
+            nlib3.print_error_log("EfficientNetV2 モデルでは trainable に False を指定できません")
+        model = tf.keras.applications.EfficientNetV2B0(weights=None, classes=1, classifier_activation="linear")
+        return self.compile_model(model, 0.001)
+
+    def create_model_efficient_net_v2_s(self, trainable: bool) -> Any:
+        """EfficientNetV2Sの転移学習モデルを作成する
+
+        Args:
+            num_classes: 分類するクラスの数
+            trainable: 特徴量抽出部を再学習するかどうか
+
+        Returns:
+            tensorflow のモデル
+        """
+        if not trainable:
+            nlib3.print_error_log("EfficientNetV2 モデルでは trainable に False を指定できません")
+        model = tf.keras.applications.EfficientNetV2S(weights=None, classes=1, classifier_activation="linear")
+        return self.compile_model(model, 0.001)
 
     def create_dataset(self, data_csv_path: str, batch_size: int, normalize: bool = False) -> tuple:
         """訓練用のデータセットを読み込む
@@ -100,23 +179,30 @@ class ImageRegressionAi(ai.Ai):
         """
         generator = self.create_generator(normalize)
         df = pandas.read_csv(data_csv_path)
+        df = df.dropna(subset=[self.y_col_name])            # 空の行を取り除く
         df = df.sample(frac=1, random_state=0)				# ランダムに並び変える
         train_ds = generator.flow_from_dataframe(
             df,
             directory=Path(data_csv_path).parent,			# csv ファイルが保存されていたディレクトリを画像ファイルの親ディレクトリにする
-            target_size=(self.img_height, self.img_width),
+            y_col=self.y_col_name,
+            target_size=(self.image_size.y, self.image_size.x),
             batch_size=batch_size,
             seed=define.RANDOM_SEED,
             class_mode="raw",
-            subset="training")
+            subset="training",
+            validate_filenames=False,               # パスチェックを行わない
+        )
         val_ds = generator.flow_from_dataframe(
             df,
             directory=Path(data_csv_path).parent,
-            target_size=(self.img_height, self.img_width),
+            y_col=self.y_col_name,
+            target_size=(self.image_size.y, self.image_size.x),
             batch_size=batch_size,
             seed=define.RANDOM_SEED,
             class_mode="raw",
-            subset="validation")
+            subset="validation",
+            validate_filenames=False,               # パスチェックを行わない
+        )
         return train_ds, val_ds		# [[[img*batch], [class*batch]], ...] の形式
 
     def count_image_from_dataset(self, dataset: Any) -> tuple:
@@ -148,8 +234,22 @@ class ImageRegressionAi(ai.Ai):
         class_indices = {row: i for i, row in enumerate(list(image_num.keys()))}
         return list(image_num.values()), class_indices
 
+    def init_model_type(self, model_type: define.ModelType) -> None:
+        """モデルの種類に応じてパラメータを初期化する
+
+        Args:
+            model_type: モデルの種類
+        """
+        match(model_type):
+            case define.ModelType.efficient_net_v2_b0_regr:
+                self.need_image_normalization = False
+            case define.ModelType.efficient_net_v2_s_regr:
+                self.need_image_normalization = False
+                self.image_size.set(384, 384)
+        return
+
     @ai.model_required
-    def inference(self, image: str | Path | tf.Tensor) -> float:
+    def predict(self, image: str | Path | tf.Tensor) -> float:
         """画像を指定して推論する
 
         Args:
@@ -159,7 +259,7 @@ class ImageRegressionAi(ai.Ai):
             推論結果
         """
         if isinstance(image, (str, Path)):
-            image = self.preprocess_image(image, self.get_normalize_flag())
+            image = self.preprocess_image(image, self.need_image_normalization)
         result = self.model(image)
         return float(result[0])
 
@@ -172,7 +272,7 @@ class ImageRegressionAi(ai.Ai):
             max_loop_num: 結果を表示する最大回数 ( 1 回につき複数枚の画像が表示される )
             use_val_ds: データセットから訓練用の画像を使用するかどうか ( False でテスト用データを使用する )
         """
-        train_ds, test_ds = self.create_dataset(data_csv_path, 12, normalize=self.get_normalize_flag())
+        train_ds, test_ds = self.create_dataset(data_csv_path, 12, normalize=self.need_image_normalization)
         if not use_val_ds:
             test_ds = train_ds
 
@@ -181,7 +281,10 @@ class ImageRegressionAi(ai.Ai):
             for j in range(len(row[0])):
                 result = self.model(tf.expand_dims(row[0][j], 0))[0]
                 ax = fig.add_subplot(3, 8, j * 2 + 1)
-                ax.imshow(row[0][j])
+                if self.need_image_normalization:
+                    ax.imshow(row[0][j])
+                else:
+                    ax.imshow(tf.cast(row[0][j], tf.int32))
                 ax = fig.add_subplot(3, 8, j * 2 + 2)
                 color = "blue"
                 if abs(row[1][j] - result[0]) > 0.17:
@@ -193,4 +296,13 @@ class ImageRegressionAi(ai.Ai):
             plt.show()
             if i == len(test_ds) - 1 or i == max_loop_num - 1:
                 break
+        return
+
+    def set_y_col_name(self, y_col_name: str) -> None:
+        """データセットの実際に使用するデータの列名を登録する
+
+        Args:
+            y_col_name: 列名
+        """
+        self.y_col_name = y_col_name
         return
