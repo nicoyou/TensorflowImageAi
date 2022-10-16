@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import nlib3
 import tensorflow as tf
 from PIL import ImageFile
+from tensorflow.keras.utils import plot_model
 
 from . import tf_callback
 
@@ -191,6 +192,22 @@ class Ai(metaclass=abc.ABCMeta):
         self.show_model_test(dataset_path, max_loop_num=5)
         return self.model_data.copy()
 
+    def load_model(self) -> None:
+        """学習済みニューラルネットワークの重みを読み込む
+        """
+        if self.model is None:
+            self.model_data = nlib3.load_json(MODEL_DIR / self.model_name / f"{MODEL_FILE}.json")
+            self.model = self.create_model(self.model_data[define.AiDataKey.model], self.model_data[define.AiDataKey.class_num], self.model_data[define.AiDataKey.trainable])
+            self.model.load_weights(MODEL_DIR / self.model_name / MODEL_FILE)
+        else:
+            nlib3.print_error_log("既に初期化されています")
+        return
+
+    @abc.abstractmethod
+    @model_required
+    def inference():
+        """画像のファイルパスを指定して推論する"""
+
     def show_history(self) -> None:
         """モデルの学習履歴をグラフで表示する
         """
@@ -215,21 +232,13 @@ class Ai(metaclass=abc.ABCMeta):
         plt.show()
         return
 
-    def load_model(self) -> None:
-        """学習済みニューラルネットワークの重みを読み込む
-        """
-        if self.model is None:
-            self.model_data = nlib3.load_json(MODEL_DIR / self.model_name / f"{MODEL_FILE}.json")
-            self.model = self.create_model(self.model_data[define.AiDataKey.model], self.model_data[define.AiDataKey.class_num], self.model_data[define.AiDataKey.trainable])
-            self.model.load_weights(MODEL_DIR / self.model_name / MODEL_FILE)
-        else:
-            nlib3.print_error_log("既に初期化されています")
-        return
-
-    @abc.abstractmethod
     @model_required
-    def inference():
-        """画像のファイルパスを指定して推論する"""
+    def export_model_figure(self) -> None:
+        """ニューラルネットワークモデルの構成図をファイルに出力する
+        """
+        plot_model(self.model, show_shapes=True, expand_nested=True, to_file=MODEL_DIR / self.model_name / "model.dot")
+        plot_model(self.model, show_shapes=True, expand_nested=True, to_file=MODEL_DIR / self.model_name / "model.png")
+        return
 
     @abc.abstractmethod
     @model_required
