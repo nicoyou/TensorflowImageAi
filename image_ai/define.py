@@ -56,3 +56,5 @@ class PersonDataKey(str, enum.Enum):
 
 RANDOM_SEED: Final[int] = 54
 CURRENT_DIR: Final[Path] = Path(__file__).parent
+MODEL_DIR: Final[Path] = CURRENT_DIR / "models"
+MODEL_FILE: Final[str] = "model"

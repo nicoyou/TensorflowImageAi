@@ -16,10 +16,6 @@ from tensorflow.keras.utils import plot_model
 
 from . import tf_callback
 
-__version__: Final[str] = "1.3.0"
-MODEL_DIR: Final[Path] = define.CURRENT_DIR / "models"
-MODEL_FILE: Final[str] = "model"
-
 
 def model_required(func: Callable) -> Callable:
     """モデルが定義されている場合のみ実行するデコレーター
@@ -173,7 +169,7 @@ class Ai(metaclass=abc.ABCMeta):
 
         timetaken = tf_callback.TimeCallback()
         history = self.model.fit(train_ds, validation_data=val_ds, epochs=epochs, callbacks=[timetaken])
-        self.model.save_weights(MODEL_DIR / self.model_name / MODEL_FILE)
+        self.model.save_weights(define.MODEL_DIR / self.model_name / define.MODEL_FILE)
         self.model_data[define.AiDataKey.version] = self.MODEL_DATA_VERSION
         self.model_data[define.AiDataKey.ai_type] = self.ai_type
         self.model_data[define.AiDataKey.class_num] = len(class_indices)
@@ -187,7 +183,7 @@ class Ai(metaclass=abc.ABCMeta):
             else:
                 self.model_data[k] = v
 
-        nlib3.save_json(MODEL_DIR / self.model_name / f"{MODEL_FILE}.json", self.model_data)
+        nlib3.save_json(define.MODEL_DIR / self.model_name / f"{define.MODEL_FILE}.json", self.model_data)
         self.show_history()
         self.show_model_test(dataset_path, max_loop_num=5)
         return self.model_data.copy()
@@ -196,9 +192,9 @@ class Ai(metaclass=abc.ABCMeta):
         """学習済みニューラルネットワークの重みを読み込む
         """
         if self.model is None:
-            self.model_data = nlib3.load_json(MODEL_DIR / self.model_name / f"{MODEL_FILE}.json")
+            self.model_data = nlib3.load_json(define.MODEL_DIR / self.model_name / f"{define.MODEL_FILE}.json")
             self.model = self.create_model(self.model_data[define.AiDataKey.model], self.model_data[define.AiDataKey.class_num], self.model_data[define.AiDataKey.trainable])
-            self.model.load_weights(MODEL_DIR / self.model_name / MODEL_FILE)
+            self.model.load_weights(define.MODEL_DIR / self.model_name / define.MODEL_FILE)
         else:
             nlib3.print_error_log("既に初期化されています")
         return
@@ -236,8 +232,8 @@ class Ai(metaclass=abc.ABCMeta):
     def export_model_figure(self) -> None:
         """ニューラルネットワークモデルの構成図をファイルに出力する
         """
-        plot_model(self.model, show_shapes=True, expand_nested=True, to_file=MODEL_DIR / self.model_name / "model.dot")
-        plot_model(self.model, show_shapes=True, expand_nested=True, to_file=MODEL_DIR / self.model_name / "model.png")
+        plot_model(self.model, show_shapes=True, expand_nested=True, to_file=define.MODEL_DIR / self.model_name / "model.dot")
+        plot_model(self.model, show_shapes=True, expand_nested=True, to_file=define.MODEL_DIR / self.model_name / "model.png")
         return
 
     @abc.abstractmethod
