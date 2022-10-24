@@ -31,9 +31,69 @@ class ImageClassificationAi(ai.Ai):
         match model_type:
             case define.ModelType.vgg16_512:
                 return self.create_model_vgg16(num_classes, trainable)
+            case define.ModelType.mobile_net_v2:
+                return self.create_model_mobile_net_v2(num_classes, trainable)
             case define.ModelType.resnet_rs152_512x2:
                 return self.create_model_resnet_rs(num_classes, trainable)
         return None
+
+    def create_model_vgg16(self, num_classes: int, trainable: bool) -> Any:
+        """vgg16の転移学習モデルを作成する
+
+        Args:
+            num_classes: 分類するクラスの数
+            trainable: 特徴量抽出部を再学習するかどうか
+
+        Returns:
+            tensorflow のモデル
+        """
+        vgg16 = tf.keras.applications.vgg16.VGG16(include_top=False, input_shape=(self.img_height, self.img_width, 3))
+
+        top_model = tf.keras.Sequential()
+        top_model.add(tf.keras.layers.Flatten(input_shape=vgg16.output_shape[1:]))
+        top_model.add(tf.keras.layers.Dense(512, activation="relu"))
+        top_model.add(tf.keras.layers.Dropout(0.25))
+        top_model.add(tf.keras.layers.Dense(num_classes, activation="softmax"))
+
+        model = tf.keras.models.Model(
+            inputs=vgg16.input,
+            outputs=top_model(vgg16.output)
+        )
+
+        if not trainable:
+            for layer in model.layers[:15]:
+                layer.trainable = False
+
+        # 最適化アルゴリズムをSGD ( 確率的勾配降下法 ) として最適化の学習率と修正幅を指定してコンパイルする
+        model.compile(
+            loss="categorical_crossentropy",
+            optimizer=tf.keras.optimizers.Adam(learning_rate=0.0001),
+            metrics=["accuracy"]
+        )
+        return model
+
+    def create_model_mobile_net_v2(self, num_classes: int, trainable: bool) -> Any:
+        """MobileNetV2の転移学習モデルを作成する
+
+        Args:
+            num_classes: 分類するクラスの数
+            trainable: 特徴量抽出部を再学習するかどうか
+
+        Returns:
+            tensorflow のモデル
+        """
+        mobile_net_v2 = tf.keras.applications.mobilenet_v2.MobileNetV2(input_shape=(self.img_height, self.img_width, 3), classes=num_classes, weights=None)
+
+        if not trainable:
+            for layer in mobile_net_v2.layers[:154]:
+                layer.trainable = False
+
+        mobile_net_v2.compile(
+            loss="categorical_crossentropy",
+            optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
+            metrics=["accuracy"]
+        )
+        return mobile_net_v2
 
     def create_model_resnet_rs(self, num_classes: int, trainable: bool) -> Any:
         """ResNet_RSの転移学習モデルを作成する
@@ -66,41 +126,6 @@ class ImageClassificationAi(ai.Ai):
         model.compile(
             loss="categorical_crossentropy",
             optimizer=tf.keras.optimizers.Adam(learning_rate=0.0002),
-            metrics=["accuracy"]
-        )
-        return model
-
-    def create_model_vgg16(self, num_classes: int, trainable: bool) -> Any:
-        """vgg16の転移学習モデルを作成する
-
-        Args:
-            num_classes: 分類するクラスの数
-            trainable: 特徴量抽出部を再学習するかどうか
-
-        Returns:
-            tensorflow のモデル
-        """
-        vgg16 = tf.keras.applications.vgg16.VGG16(include_top=False, input_shape=(self.img_height, self.img_width, 3))
-
-        top_model =  tf.keras.Sequential()
-        top_model.add(tf.keras.layers.Flatten(input_shape=vgg16.output_shape[1:]))
-        top_model.add(tf.keras.layers.Dense(512, activation="relu"))
-        top_model.add(tf.keras.layers.Dropout(0.25))
-        top_model.add(tf.keras.layers.Dense(num_classes, activation="softmax"))
-
-        model = tf.keras.models.Model(
-            inputs=vgg16.input,
-            outputs=top_model(vgg16.output)
-        )
-
-        if not trainable:
-            for layer in model.layers[:15]:
-                layer.trainable = False
-
-        # 最適化アルゴリズムをSGD ( 確率的勾配降下法 ) として最適化の学習率と修正幅を指定してコンパイルする
-        model.compile(
-            loss="categorical_crossentropy",
-            optimizer=tf.keras.optimizers.Adam(learning_rate=0.0001),
             metrics=["accuracy"]
         )
         return model
@@ -171,7 +196,7 @@ class ImageClassificationAi(ai.Ai):
         """
         if isinstance(image, (str, Path)):
             image = self.preprocess_image(image, self.get_normalize_flag())
-        result = self.model(image)		
+        result = self.model(image)
         return [float(row) for row in result[0]]
 
     @ai.model_required

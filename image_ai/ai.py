@@ -228,15 +228,22 @@ class Ai(metaclass=abc.ABCMeta):
         plt.show()
         return
 
-    @model_required
-    def export_model_figure(self) -> None:
-        """ニューラルネットワークモデルの構成図をファイルに出力する
-        """
-        plot_model(self.model, show_shapes=True, expand_nested=True, to_file=define.MODEL_DIR / self.model_name / "model.dot")
-        plot_model(self.model, show_shapes=True, expand_nested=True, to_file=define.MODEL_DIR / self.model_name / "model.png")
-        return
-
     @abc.abstractmethod
     @model_required
     def show_model_test():
         """テストデータの推論結果を表示する"""
+
+    @model_required
+    def export_model_figure(self) -> None:
+        """ニューラルネットワークモデルの構成図をファイルに出力する
+        """
+        plot_model(self.model, show_shapes=True, expand_nested=True, to_file=define.MODEL_DIR / self.model_name / "model.png")
+        plot_model(self.model, show_shapes=True, expand_nested=True, to_file=define.MODEL_DIR / self.model_name / "model.dot")
+        return
+
+    @model_required
+    def export_model_h5(self) -> None:
+        """モデルを h5 形式でファイルに保存する
+        """
+        self.model.save(define.MODEL_DIR / self.model_name / "model.h5")
+        return

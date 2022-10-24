@@ -158,7 +158,7 @@ class ImageMultiLabelAi(ai.Ai):
         """
         if isinstance(image, (str, Path)):
             image = self.preprocess_image(image, self.get_normalize_flag())
-        result = self.model(image)		
+        result = self.model(image)
         return [float(row) for row in result[0]]
 
     @ai.model_required
