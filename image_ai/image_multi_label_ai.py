@@ -16,6 +16,7 @@ class ImageMultiLabelAi(ai.Ai):
     """多ラベル分類AI"""
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(define.AiType.multi_label, *args, **kwargs)
+        self.y_col_name = "labels"
         return
 
     def create_model(self, model_type: define.ModelType, num_classes: int, trainable: bool = False) -> Any | None:
@@ -96,29 +97,33 @@ class ImageMultiLabelAi(ai.Ai):
             train_ds: 訓練用のデータセット
             val_ds: テスト用のデータセット
         """
-        Y_LABELS = "labels"
         generator = self.create_generator(normalize)
         df = pandas.read_csv(data_csv_path)
-        df[Y_LABELS] = df[Y_LABELS].str.split(",")				# 複数のラベルを格納している列は文字列からリストに変換する
+        df = df.dropna(subset=[self.y_col_name])                # 空の行を取り除く
+        df[self.y_col_name] = df[self.y_col_name].str.split(",")				# 複数のラベルを格納している列は文字列からリストに変換する
         df = df.sample(frac=1, random_state=0)					# ランダムに並び変える
         train_ds = generator.flow_from_dataframe(
             df,
             directory=str(Path(data_csv_path).parent),			# csv ファイルが保存されていたディレクトリを画像ファイルの親ディレクトリにする
-            y_col=Y_LABELS,
+            y_col=self.y_col_name,
             target_size=(self.img_height, self.img_width),
             batch_size=batch_size,
             seed=define.RANDOM_SEED,
             class_mode="categorical",
-            subset="training")
+            subset="training",
+            validate_filenames=False,               # パスチェックを行わない
+        )
         val_ds = generator.flow_from_dataframe(
             df,
             directory=str(Path(data_csv_path).parent),
-            y_col=Y_LABELS,
+            y_col=self.y_col_name,
             target_size=(self.img_height, self.img_width),
             batch_size=batch_size,
             seed=define.RANDOM_SEED,
             class_mode="categorical",
-            subset="validation")
+            subset="validation",
+            validate_filenames=False,               # パスチェックを行わない
+        )
         return train_ds, val_ds		# [[[img*batch], [class*batch]], ...] の形式
 
     def count_image_from_dataset(self, dataset: Any) -> tuple:
@@ -226,4 +231,13 @@ class ImageMultiLabelAi(ai.Ai):
             plt.show()
             if i == len(test_ds) - 1 or i == max_loop_num - 1:												# 表示した回数がバッチ数を超えたら終了する
                 break
+        return
+
+    def set_y_col_name(self, y_col_name: str) -> None:
+        """データセットの実際に使用するデータの列名を登録する
+
+        Args:
+            y_col_name: 列名
+        """
+        self.y_col_name = y_col_name
         return

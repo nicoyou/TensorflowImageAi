@@ -15,6 +15,7 @@ class ImageRegressionAi(ai.Ai):
     """画像の回帰分析AI"""
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(define.AiType.regression, *args, **kwargs)
+        self.y_col_name = "class"
         return
 
     def create_model(self, model_type: define.ModelType, num_classes: int, trainable: bool = False) -> Any:
@@ -100,23 +101,30 @@ class ImageRegressionAi(ai.Ai):
         """
         generator = self.create_generator(normalize)
         df = pandas.read_csv(data_csv_path)
+        df = df.dropna(subset=[self.y_col_name])            # 空の行を取り除く
         df = df.sample(frac=1, random_state=0)				# ランダムに並び変える
         train_ds = generator.flow_from_dataframe(
             df,
             directory=Path(data_csv_path).parent,			# csv ファイルが保存されていたディレクトリを画像ファイルの親ディレクトリにする
+            y_col=self.y_col_name,
             target_size=(self.img_height, self.img_width),
             batch_size=batch_size,
             seed=define.RANDOM_SEED,
             class_mode="raw",
-            subset="training")
+            subset="training",
+            validate_filenames=False,               # パスチェックを行わない
+        )
         val_ds = generator.flow_from_dataframe(
             df,
             directory=Path(data_csv_path).parent,
+            y_col=self.y_col_name,
             target_size=(self.img_height, self.img_width),
             batch_size=batch_size,
             seed=define.RANDOM_SEED,
             class_mode="raw",
-            subset="validation")
+            subset="validation",
+            validate_filenames=False,               # パスチェックを行わない
+        )
         return train_ds, val_ds		# [[[img*batch], [class*batch]], ...] の形式
 
     def count_image_from_dataset(self, dataset: Any) -> tuple:
@@ -193,4 +201,13 @@ class ImageRegressionAi(ai.Ai):
             plt.show()
             if i == len(test_ds) - 1 or i == max_loop_num - 1:
                 break
+        return
+
+    def set_y_col_name(self, y_col_name: str) -> None:
+        """データセットの実際に使用するデータの列名を登録する
+
+        Args:
+            y_col_name: 列名
+        """
+        self.y_col_name = y_col_name
         return
