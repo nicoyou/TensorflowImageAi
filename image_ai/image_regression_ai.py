@@ -30,8 +30,10 @@ class ImageRegressionAi(ai.Ai):
             tensorflow のモデル
         """
         match model_type:
+            case define.ModelType.resnet_rs152_256_regr:
+                return self.create_model_resnet_rs_256_regr(trainable)
             case define.ModelType.resnet_rs152_512x2_regr:
-                return self.create_model_resnet_rs_regr(trainable)
+                return self.create_model_resnet_rs_512x2_regr(trainable)
         return None
 
     @staticmethod
@@ -53,7 +55,41 @@ class ImageRegressionAi(ai.Ai):
         )
         return result
 
-    def create_model_resnet_rs_regr(self, trainable: bool) -> Any:
+    def create_model_resnet_rs_256_regr(self, trainable: bool) -> Any:
+        """ResNet_RSの転移学習モデルを作成する
+
+        Args:
+            num_classes: 分類するクラスの数
+            trainable: 特徴量抽出部を再学習するかどうか
+
+        Returns:
+            tensorflow のモデル
+        """
+        resnet = resnet_rs.ResNetRS152(include_top=False, input_shape=(self.img_height, self.img_width, 3), weights="imagenet-i224")
+
+        x = tf.keras.layers.Flatten(input_shape=resnet.output_shape[1:])(resnet.output)
+        x = tf.keras.layers.Dense(256, activation="relu")(x)
+        x = tf.keras.layers.Dropout(0.25)(x)
+
+        output = tf.keras.layers.Dense(1, activation="linear")(x)
+
+        model = tf.keras.models.Model(
+            inputs=resnet.input,
+            outputs=output
+        )
+
+        if not trainable:
+            for layer in model.layers[:779]:
+                layer.trainable = False
+
+        model.compile(
+            loss="mean_squared_error",
+            optimizer=tf.keras.optimizers.Adam(learning_rate=0.0002),
+            metrics=[self.accuracy]
+        )
+        return model
+
+    def create_model_resnet_rs_512x2_regr(self, trainable: bool) -> Any:
         """ResNet_RSの転移学習モデルを作成する
 
         Args:

@@ -14,8 +14,12 @@ class AiType(str, enum.Enum):
 class ModelType(str, enum.Enum):
     unknown = "unknown"
     vgg16_512 = "vgg16_512"
+    mobile_net_v2 = "mobile_net_v2"
+    resnet_rs152_256 = "resnet_rs152_256"
     resnet_rs152_512x2 = "resnet_rs152_512x2"
+    resnet_rs152_256_regr = "resnet_rs152_256_regr"
     resnet_rs152_512x2_regr = "resnet_rs152_512x2_regr"
+    resnet_rs152_256_multi_label = "resnet_rs152_256_multi_label"
     resnet_rs152_512x2_multi_label = "resnet_rs152_512x2_multi_label"
 
     pix2pix = "pix2pix"
