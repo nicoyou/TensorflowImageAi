@@ -37,6 +37,10 @@ class ImageClassificationAi(ai.Ai):
                 return self.create_model_resnet_rs_256(num_classes, trainable)
             case define.ModelType.resnet_rs152_512x2:
                 return self.create_model_resnet_rs_512x2(num_classes, trainable)
+            case define.ModelType.efficient_net_v2_b0:
+                return self.create_model_efficient_net_v2_b0(num_classes, trainable)
+            case define.ModelType.efficient_net_v2_s:
+                return self.create_model_efficient_net_v2_s(num_classes, trainable)
         return None
 
     def create_model_vgg16(self, num_classes: int, trainable: bool) -> Any:
@@ -166,6 +170,44 @@ class ImageClassificationAi(ai.Ai):
         )
         return model
 
+    def create_model_efficient_net_v2_b0(self, num_classes: int, trainable: bool) -> Any:
+        """EfficientNetV2B0の転移学習モデルを作成する
+
+        Args:
+            num_classes: 分類するクラスの数
+            trainable: 特徴量抽出部を再学習するかどうか
+
+        Returns:
+            tensorflow のモデル
+        """
+        model = tf.keras.applications.EfficientNetV2B0(weights=None, classes=num_classes)
+
+        model.compile(
+            loss="categorical_crossentropy",
+            optimizer=tf.keras.optimizers.Adam(learning_rate=0.0002),
+            metrics=["accuracy"]
+        )
+        return model
+
+    def create_model_efficient_net_v2_s(self, num_classes: int, trainable: bool) -> Any:
+        """EfficientNetV2Sの転移学習モデルを作成する
+
+        Args:
+            num_classes: 分類するクラスの数
+            trainable: 特徴量抽出部を再学習するかどうか
+
+        Returns:
+            tensorflow のモデル
+        """
+        model = tf.keras.applications.EfficientNetV2S(weights=None, classes=num_classes)
+
+        model.compile(
+            loss="categorical_crossentropy",
+            optimizer=tf.keras.optimizers.Adam(learning_rate=0.0002),
+            metrics=["accuracy"]
+        )
+        return model
+
     def create_dataset(self, dataset_path: str, batch_size: int, normalize: bool = False) -> tuple:
         """訓練用のデータセットを読み込む
 
@@ -225,6 +267,11 @@ class ImageClassificationAi(ai.Ai):
         match(model_type):
             case define.ModelType.vgg16_512:
                 self.need_image_normalization = False
+            case define.ModelType.efficient_net_v2_b0:
+                self.need_image_normalization = False
+            case define.ModelType.efficient_net_v2_s:
+                self.need_image_normalization = False
+                self.image_size.set(384, 384)
         return
 
     @ai.model_required

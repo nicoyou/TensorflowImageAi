@@ -21,6 +21,8 @@ class ModelType(str, enum.Enum):
     resnet_rs152_512x2_regr = "resnet_rs152_512x2_regr"
     resnet_rs152_256_multi_label = "resnet_rs152_256_multi_label"
     resnet_rs152_512x2_multi_label = "resnet_rs152_512x2_multi_label"
+    efficient_net_v2_b0 = "efficient_net_v2_b0"
+    efficient_net_v2_s = "efficient_net_v2_s"
 
     pix2pix = "pix2pix"
 
