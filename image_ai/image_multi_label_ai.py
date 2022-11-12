@@ -9,6 +9,7 @@ import numpy as np
 import pandas
 import resnet_rs
 import tensorflow as tf
+import nlib3
 
 from . import define
 
@@ -50,9 +51,13 @@ class ImageMultiLabelAi(ai.Ai):
         """
         match model_type:
             case define.ModelType.resnet_rs152_256_multi_label:
-                return self.create_model_resnet_rs_256_ml(num_classes, trainable)
+                return self.create_model_resnet_rs_256(num_classes, trainable)
             case define.ModelType.resnet_rs152_512x2_multi_label:
-                return self.create_model_resnet_rs_512x2_ml(num_classes, trainable)
+                return self.create_model_resnet_rs_512x2(num_classes, trainable)
+            case define.ModelType.efficient_net_v2_b0_multi_label:
+                return self.create_model_efficient_net_v2_b0(num_classes, trainable)
+            case define.ModelType.efficient_net_v2_s_multi_label:
+                return self.create_model_efficient_net_v2_s(num_classes, trainable)
         return None
 
     @staticmethod
@@ -70,7 +75,7 @@ class ImageMultiLabelAi(ai.Ai):
         flag = backend.cast(backend.equal(y_true, pred), tf.float32)
         return backend.mean(flag, axis=-1)
 
-    def create_model_resnet_rs_256_ml(self, num_classes: int, trainable: bool) -> Any:
+    def create_model_resnet_rs_256(self, num_classes: int, trainable: bool) -> Any:
         """ResNet_RSの転移学習モデルを作成する
 
         Args:
@@ -99,7 +104,7 @@ class ImageMultiLabelAi(ai.Ai):
 
         return self.model_compile(model)
 
-    def create_model_resnet_rs_512x2_ml(self, num_classes: int, trainable: bool) -> Any:
+    def create_model_resnet_rs_512x2(self, num_classes: int, trainable: bool) -> Any:
         """ResNet_RSの転移学習モデルを作成する
 
         Args:
@@ -128,6 +133,36 @@ class ImageMultiLabelAi(ai.Ai):
                 layer.trainable = False
 
         return self.model_compile(model)
+
+    def create_model_efficient_net_v2_b0(self, num_classes: int, trainable: bool) -> Any:
+        """EfficientNetV2B0の転移学習モデルを作成する
+
+        Args:
+            num_classes: 分類するクラスの数
+            trainable: 特徴量抽出部を再学習するかどうか
+
+        Returns:
+            tensorflow のモデル
+        """
+        if not trainable:
+            nlib3.print_error_log("EfficientNetV2 モデルでは trainable に False を指定できません")
+        model = tf.keras.applications.EfficientNetV2B0(weights=None, classes=num_classes, classifier_activation="sigmoid")
+        return self.compile_model(model)
+
+    def create_model_efficient_net_v2_s(self, num_classes: int, trainable: bool) -> Any:
+        """EfficientNetV2Sの転移学習モデルを作成する
+
+        Args:
+            num_classes: 分類するクラスの数
+            trainable: 特徴量抽出部を再学習するかどうか
+
+        Returns:
+            tensorflow のモデル
+        """
+        if not trainable:
+            nlib3.print_error_log("EfficientNetV2 モデルでは trainable に False を指定できません")
+        model = tf.keras.applications.EfficientNetV2S(weights=None, classes=num_classes, classifier_activation="sigmoid")
+        return self.compile_model(model)
 
     def create_dataset(self, data_csv_path: str, batch_size: int, normalize: bool = False) -> tuple:
         """訓練用のデータセットを読み込む
@@ -194,6 +229,20 @@ class ImageMultiLabelAi(ai.Ai):
         class_image_num = [row for row, label in class_image_num]	# 不要になったラベルのキーを破棄する
         dataset.reset()
         return class_image_num, dataset.class_indices
+
+    def init_model_type(self, model_type: define.ModelType) -> None:
+        """モデルの種類に応じてパラメータを初期化する
+
+        Args:
+            model_type: モデルの種類
+        """
+        match(model_type):
+            case define.ModelType.efficient_net_v2_b0_multi_label:
+                self.need_image_normalization = False
+            case define.ModelType.efficient_net_v2_s_multi_label:
+                self.need_image_normalization = False
+                self.image_size.set(384, 384)
+        return
 
     @ai.model_required
     def predict(self, image: str | Path | tf.Tensor) -> list:

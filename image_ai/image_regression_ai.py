@@ -49,9 +49,13 @@ class ImageRegressionAi(ai.Ai):
         """
         match model_type:
             case define.ModelType.resnet_rs152_256_regr:
-                return self.create_model_resnet_rs_256_regr(trainable)
+                return self.create_model_resnet_rs_256(trainable)
             case define.ModelType.resnet_rs152_512x2_regr:
-                return self.create_model_resnet_rs_512x2_regr(trainable)
+                return self.create_model_resnet_rs_512x2(trainable)
+            case define.ModelType.efficient_net_v2_b0_regr:
+                return self.create_model_efficient_net_v2_b0(trainable)
+            case define.ModelType.efficient_net_v2_s_regr:
+                return self.create_model_efficient_net_v2_s(trainable)
         return None
 
     @staticmethod
@@ -73,7 +77,7 @@ class ImageRegressionAi(ai.Ai):
         )
         return result
 
-    def create_model_resnet_rs_256_regr(self, trainable: bool) -> Any:
+    def create_model_resnet_rs_256(self, trainable: bool) -> Any:
         """ResNet_RSの転移学習モデルを作成する
 
         Args:
@@ -102,7 +106,7 @@ class ImageRegressionAi(ai.Ai):
 
         return self.compile_model(model)
 
-    def create_model_resnet_rs_512x2_regr(self, trainable: bool) -> Any:
+    def create_model_resnet_rs_512x2(self, trainable: bool) -> Any:
         """ResNet_RSの転移学習モデルを作成する
 
         Args:
@@ -129,6 +133,36 @@ class ImageRegressionAi(ai.Ai):
             for layer in model.layers[:779]:
                 layer.trainable = False
 
+        return self.compile_model(model)
+
+    def create_model_efficient_net_v2_b0(self, trainable: bool) -> Any:
+        """EfficientNetV2B0の転移学習モデルを作成する
+
+        Args:
+            num_classes: 分類するクラスの数
+            trainable: 特徴量抽出部を再学習するかどうか
+
+        Returns:
+            tensorflow のモデル
+        """
+        if not trainable:
+            nlib3.print_error_log("EfficientNetV2 モデルでは trainable に False を指定できません")
+        model = tf.keras.applications.EfficientNetV2B0(weights=None, classes=1, classifier_activation="linear")
+        return self.compile_model(model)
+
+    def create_model_efficient_net_v2_s(self, trainable: bool) -> Any:
+        """EfficientNetV2Sの転移学習モデルを作成する
+
+        Args:
+            num_classes: 分類するクラスの数
+            trainable: 特徴量抽出部を再学習するかどうか
+
+        Returns:
+            tensorflow のモデル
+        """
+        if not trainable:
+            nlib3.print_error_log("EfficientNetV2 モデルでは trainable に False を指定できません")
+        model = tf.keras.applications.EfficientNetV2S(weights=None, classes=1, classifier_activation="linear")
         return self.compile_model(model)
 
     def create_dataset(self, data_csv_path: str, batch_size: int, normalize: bool = False) -> tuple:
@@ -199,6 +233,20 @@ class ImageRegressionAi(ai.Ai):
         dataset.reset()
         class_indices = {row: i for i, row in enumerate(list(image_num.keys()))}
         return list(image_num.values()), class_indices
+
+    def init_model_type(self, model_type: define.ModelType) -> None:
+        """モデルの種類に応じてパラメータを初期化する
+
+        Args:
+            model_type: モデルの種類
+        """
+        match(model_type):
+            case define.ModelType.efficient_net_v2_b0_regr:
+                self.need_image_normalization = False
+            case define.ModelType.efficient_net_v2_s_regr:
+                self.need_image_normalization = False
+                self.image_size.set(384, 384)
+        return
 
     @ai.model_required
     def predict(self, image: str | Path | tf.Tensor) -> float:

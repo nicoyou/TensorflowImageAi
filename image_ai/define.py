@@ -23,6 +23,10 @@ class ModelType(str, enum.Enum):
     resnet_rs152_512x2_multi_label = "resnet_rs152_512x2_multi_label"
     efficient_net_v2_b0 = "efficient_net_v2_b0"
     efficient_net_v2_s = "efficient_net_v2_s"
+    efficient_net_v2_b0_regr = "efficient_net_v2_b0_regr"
+    efficient_net_v2_s_regr = "efficient_net_v2_s_regr"
+    efficient_net_v2_b0_multi_label = "efficient_net_v2_b0_multi_label"
+    efficient_net_v2_s_multi_label = "efficient_net_v2_s_multi_label"
 
     pix2pix = "pix2pix"
 

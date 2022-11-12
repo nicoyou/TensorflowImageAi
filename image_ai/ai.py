@@ -123,6 +123,7 @@ class Ai(metaclass=abc.ABCMeta):
     def count_image_from_dataset():
         """データセットに含まれるクラスごとの画像の数を取得する"""
 
+    @abc.abstractmethod
     def init_model_type(self, model_type: define.ModelType) -> None:
         """モデルの種類に応じてパラメータを初期化する"""
         return

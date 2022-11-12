@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import resnet_rs
 import tensorflow as tf
+import nlib3
 
 from . import define
 
@@ -176,6 +177,8 @@ class ImageClassificationAi(ai.Ai):
         Returns:
             tensorflow のモデル
         """
+        if not trainable:
+            nlib3.print_error_log("EfficientNetV2 モデルでは trainable に False を指定できません")
         model = tf.keras.applications.EfficientNetV2B0(weights=None, classes=num_classes)
         return self.compile_model(model)
 
@@ -189,6 +192,8 @@ class ImageClassificationAi(ai.Ai):
         Returns:
             tensorflow のモデル
         """
+        if not trainable:
+            nlib3.print_error_log("EfficientNetV2 モデルでは trainable に False を指定できません")
         model = tf.keras.applications.EfficientNetV2S(weights=None, classes=num_classes)
         return self.compile_model(model)
 
@@ -247,7 +252,11 @@ class ImageClassificationAi(ai.Ai):
         return class_image_num, dataset.class_indices
 
     def init_model_type(self, model_type: define.ModelType) -> None:
-        """モデルの種類に応じてパラメータを初期化する"""
+        """モデルの種類に応じてパラメータを初期化する
+
+        Args:
+            model_type: モデルの種類
+        """
         match(model_type):
             case define.ModelType.vgg16_512:
                 self.need_image_normalization = False
