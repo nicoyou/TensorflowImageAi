@@ -42,6 +42,7 @@ class Ai(metaclass=abc.ABCMeta):
             model_name: 管理するAIの名前 ( 保存、読み込み用 )
         """
         ImageFile.LOAD_TRUNCATED_IMAGES = True  # 高速にロードできない画像も読み込む
+        self.need_image_normalization = True
         self.model = None
         self.model_data = None
         self.model_name = model_name
@@ -84,23 +85,6 @@ class Ai(metaclass=abc.ABCMeta):
         image = tf.expand_dims(image, 0)    # 次元を一つ増やしてバッチ化する
         return image
 
-    def get_normalize_flag(self, model_type: define.ModelType = define.ModelType.unknown) -> bool:
-        """画像の前処理として正規化を実行するかを判断する
-
-        Args:
-            model_type:
-                正規化が必要かどうかを確認するモデル
-                すでにクラスがモデルデータを保持している場合は不要
-
-        Returns:
-            正規化が必要かどうか
-        """
-        normalize = True
-        no_normalize_model = [define.ModelType.vgg16_512]
-        if (self.model_data is not None and self.model_data[define.AiDataKey.model] in no_normalize_model) or model_type in no_normalize_model:
-            normalize = False
-        return normalize
-
     def create_generator(self, normalize: bool) -> tf.keras.preprocessing.image.ImageDataGenerator:
         """データセットの前処理を行うジェネレーターを作成する
 
@@ -134,6 +118,10 @@ class Ai(metaclass=abc.ABCMeta):
     def count_image_from_dataset():
         """データセットに含まれるクラスごとの画像の数を取得する"""
 
+    def init_model_type(self, model_type: define.ModelType) -> None:
+        """モデルの種類に応じてパラメータを初期化する"""
+        return
+
     def train_model(self, dataset_path: str, epochs: int = 6, batch_size: int = 32, model_type: define.ModelType = define.ModelType.unknown, trainable: bool = False) -> dict:
         """ディープラーニングを実行する
 
@@ -152,7 +140,8 @@ class Ai(metaclass=abc.ABCMeta):
         Returns:
             学習を行ったモデルの情報
         """
-        train_ds, val_ds = self.create_dataset(dataset_path, batch_size, normalize=self.get_normalize_flag(model_type))
+        self.init_model_type(model_type)
+        train_ds, val_ds = self.create_dataset(dataset_path, batch_size, normalize=self.need_image_normalization)
 
         class_image_num, class_indices = self.count_image_from_dataset(train_ds)
         val_class_image_num, val_class_indices = self.count_image_from_dataset(val_ds)
@@ -194,6 +183,7 @@ class Ai(metaclass=abc.ABCMeta):
             self.model_data = nlib3.load_json(define.MODEL_DIR / self.model_name / f"{define.MODEL_FILE}.json")
             self.model = self.create_model(self.model_data[define.AiDataKey.model], self.model_data[define.AiDataKey.class_num], self.model_data[define.AiDataKey.trainable])
             self.model.load_weights(define.MODEL_DIR / self.model_name / define.MODEL_FILE)
+            self.init_model_type(self.model_data[define.AiDataKey.model])
         else:
             nlib3.print_error_log("既に初期化されています")
         return

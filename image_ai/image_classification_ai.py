@@ -220,6 +220,13 @@ class ImageClassificationAi(ai.Ai):
         dataset.reset()
         return class_image_num, dataset.class_indices
 
+    def init_model_type(self, model_type: define.ModelType) -> None:
+        """モデルの種類に応じてパラメータを初期化する"""
+        match(model_type):
+            case define.ModelType.vgg16_512:
+                self.need_image_normalization = False
+        return
+
     @ai.model_required
     def predict(self, image: str | Path | tf.Tensor) -> list:
         """画像を指定して推論する
@@ -231,7 +238,7 @@ class ImageClassificationAi(ai.Ai):
             各クラスの確立を格納したリスト
         """
         if isinstance(image, (str, Path)):
-            image = self.preprocess_image(image, self.get_normalize_flag())
+            image = self.preprocess_image(image, self.need_image_normalization)
         result = self.model(image)
         return [float(row) for row in result[0]]
 
@@ -257,7 +264,7 @@ class ImageClassificationAi(ai.Ai):
             max_loop_num: 結果を表示する最大回数 ( 1 回につき複数枚の画像が表示される )
             use_val_ds: データセットから訓練用の画像を使用するかどうか ( False でテスト用データを使用する )
         """
-        train_ds, test_ds = self.create_dataset(dataset_path, 12, normalize=self.get_normalize_flag())		# バッチサイズを表示する画像数と同じにする
+        train_ds, test_ds = self.create_dataset(dataset_path, 12, normalize=self.need_image_normalization)		# バッチサイズを表示する画像数と同じにする
         if not use_val_ds:
             test_ds = train_ds
 
@@ -267,7 +274,7 @@ class ImageClassificationAi(ai.Ai):
             for j in range(len(row[0])):			# 最大12の画像数
                 result = self.model(tf.expand_dims(row[0][j], 0))[0]
                 ax = fig.add_subplot(3, 8, j * 2 + 1)
-                if self.get_normalize_flag():
+                if self.need_image_normalization:
                     ax.imshow(row[0][j])
                 else:
                     ax.imshow(tf.cast(row[0][j], tf.int32))
@@ -294,7 +301,7 @@ class ImageClassificationAi(ai.Ai):
             間違えた推論結果と本来のクラスを格納したタプルのリスト
             [(推論結果, 解答), (推論結果, 解答)...]
         """
-        train_ds, test_ds = self.create_dataset(dataset_path, 8, normalize=self.get_normalize_flag())
+        train_ds, test_ds = self.create_dataset(dataset_path, 8, normalize=self.need_image_normalization)
         result_list = []
         if not use_val_ds:
             test_ds = train_ds

@@ -203,7 +203,7 @@ class ImageRegressionAi(ai.Ai):
             推論結果
         """
         if isinstance(image, (str, Path)):
-            image = self.preprocess_image(image, self.get_normalize_flag())
+            image = self.preprocess_image(image, self.need_image_normalization)
         result = self.model(image)
         return float(result[0])
 
@@ -216,7 +216,7 @@ class ImageRegressionAi(ai.Ai):
             max_loop_num: 結果を表示する最大回数 ( 1 回につき複数枚の画像が表示される )
             use_val_ds: データセットから訓練用の画像を使用するかどうか ( False でテスト用データを使用する )
         """
-        train_ds, test_ds = self.create_dataset(data_csv_path, 12, normalize=self.get_normalize_flag())
+        train_ds, test_ds = self.create_dataset(data_csv_path, 12, normalize=self.need_image_normalization)
         if not use_val_ds:
             test_ds = train_ds
 
@@ -225,7 +225,7 @@ class ImageRegressionAi(ai.Ai):
             for j in range(len(row[0])):
                 result = self.model(tf.expand_dims(row[0][j], 0))[0]
                 ax = fig.add_subplot(3, 8, j * 2 + 1)
-                if self.get_normalize_flag():
+                if self.need_image_normalization:
                     ax.imshow(row[0][j])
                 else:
                     ax.imshow(tf.cast(row[0][j], tf.int32))
