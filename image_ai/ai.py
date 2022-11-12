@@ -111,6 +111,11 @@ class Ai(metaclass=abc.ABCMeta):
         """訓練用とテスト用のデータセットを作成する"""
 
     @abc.abstractmethod
+    def compile_model():
+        """モデルを最適なパラメータでコンパイルする
+        """
+
+    @abc.abstractmethod
     def create_model():
         """AIのモデルを作成する"""
 

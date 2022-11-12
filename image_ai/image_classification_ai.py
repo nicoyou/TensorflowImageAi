@@ -17,6 +17,23 @@ class ImageClassificationAi(ai.Ai):
         super().__init__(define.AiType.categorical, *args, **kwargs)
         return
 
+    def compile_model(self, model: Any, learning_rate: float=0.0002):
+        """モデルを分類問題に最適なパラメータでコンパイルする
+
+        Args:
+            model: 未コンパイルのモデル
+            learning_rate: 学習率
+
+        Returns:
+            コンパイル後のモデル
+        """
+        model.compile(
+            loss="categorical_crossentropy",
+            optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),
+            metrics=["accuracy"],
+        )
+        return model
+
     def create_model(self, model_type: define.ModelType, num_classes: int, trainable: bool = False) -> Any | None:
         """画像分類モデルを作成する
 
@@ -70,13 +87,7 @@ class ImageClassificationAi(ai.Ai):
             for layer in model.layers[:15]:
                 layer.trainable = False
 
-        # 最適化アルゴリズムをSGD ( 確率的勾配降下法 ) として最適化の学習率と修正幅を指定してコンパイルする
-        model.compile(
-            loss="categorical_crossentropy",
-            optimizer=tf.keras.optimizers.Adam(learning_rate=0.0001),
-            metrics=["accuracy"]
-        )
-        return model
+        return self.compile_model(model, 0.0001)
 
     def create_model_mobile_net_v2(self, num_classes: int, trainable: bool) -> Any:
         """MobileNetV2の転移学習モデルを作成する
@@ -94,12 +105,7 @@ class ImageClassificationAi(ai.Ai):
             for layer in mobile_net_v2.layers[:154]:
                 layer.trainable = False
 
-        mobile_net_v2.compile(
-            loss="categorical_crossentropy",
-            optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
-            metrics=["accuracy"]
-        )
-        return mobile_net_v2
+        return self.compile_model(mobile_net_v2, 0.001)
 
     def create_model_resnet_rs_256(self, num_classes: int, trainable: bool) -> Any:
         """ResNet_RSの転移学習モデルを作成する
@@ -128,12 +134,7 @@ class ImageClassificationAi(ai.Ai):
             for layer in model.layers[:779]:
                 layer.trainable = False
 
-        model.compile(
-            loss="categorical_crossentropy",
-            optimizer=tf.keras.optimizers.Adam(learning_rate=0.0002),
-            metrics=["accuracy"]
-        )
-        return model
+        return self.compile_model(model)
 
     def create_model_resnet_rs_512x2(self, num_classes: int, trainable: bool) -> Any:
         """ResNet_RSの転移学習モデルを作成する
@@ -163,12 +164,7 @@ class ImageClassificationAi(ai.Ai):
             for layer in model.layers[:779]:
                 layer.trainable = False
 
-        model.compile(
-            loss="categorical_crossentropy",
-            optimizer=tf.keras.optimizers.Adam(learning_rate=0.0002),
-            metrics=["accuracy"]
-        )
-        return model
+        return self.compile_model(model)
 
     def create_model_efficient_net_v2_b0(self, num_classes: int, trainable: bool) -> Any:
         """EfficientNetV2B0の転移学習モデルを作成する
@@ -181,13 +177,7 @@ class ImageClassificationAi(ai.Ai):
             tensorflow のモデル
         """
         model = tf.keras.applications.EfficientNetV2B0(weights=None, classes=num_classes)
-
-        model.compile(
-            loss="categorical_crossentropy",
-            optimizer=tf.keras.optimizers.Adam(learning_rate=0.0002),
-            metrics=["accuracy"]
-        )
-        return model
+        return self.compile_model(model)
 
     def create_model_efficient_net_v2_s(self, num_classes: int, trainable: bool) -> Any:
         """EfficientNetV2Sの転移学習モデルを作成する
@@ -200,13 +190,7 @@ class ImageClassificationAi(ai.Ai):
             tensorflow のモデル
         """
         model = tf.keras.applications.EfficientNetV2S(weights=None, classes=num_classes)
-
-        model.compile(
-            loss="categorical_crossentropy",
-            optimizer=tf.keras.optimizers.Adam(learning_rate=0.0002),
-            metrics=["accuracy"]
-        )
-        return model
+        return self.compile_model(model)
 
     def create_dataset(self, dataset_path: str, batch_size: int, normalize: bool = False) -> tuple:
         """訓練用のデータセットを読み込む

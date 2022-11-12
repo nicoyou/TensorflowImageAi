@@ -1,4 +1,5 @@
 from . import ai
+
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +19,23 @@ class ImageMultiLabelAi(ai.Ai):
         super().__init__(define.AiType.multi_label, *args, **kwargs)
         self.y_col_name = "labels"
         return
+
+    def compile_model(self, model: Any, learning_rate: float=0.0002):
+        """モデルを多ラベル問題に最適なパラメータでコンパイルする
+
+        Args:
+            model: 未コンパイルのモデル
+            learning_rate: 学習率
+
+        Returns:
+            コンパイル後のモデル
+        """
+        model.compile(
+            loss="binary_crossentropy",
+            optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),
+            metrics=[self.accuracy]
+        )
+        return model
 
     def create_model(self, model_type: define.ModelType, num_classes: int, trainable: bool = False) -> Any | None:
         """多ラベル分類モデルを作成する
@@ -79,12 +97,7 @@ class ImageMultiLabelAi(ai.Ai):
             for layer in model.layers[:779]:
                 layer.trainable = False
 
-        model.compile(
-            loss="binary_crossentropy",
-            optimizer=tf.keras.optimizers.Adam(learning_rate=0.0002),
-            metrics=[self.accuracy]
-        )
-        return model
+        return self.model_compile(model)
 
     def create_model_resnet_rs_512x2_ml(self, num_classes: int, trainable: bool) -> Any:
         """ResNet_RSの転移学習モデルを作成する
@@ -114,12 +127,7 @@ class ImageMultiLabelAi(ai.Ai):
             for layer in model.layers[:779]:
                 layer.trainable = False
 
-        model.compile(
-            loss="binary_crossentropy",
-            optimizer=tf.keras.optimizers.Adam(learning_rate=0.0002),
-            metrics=[self.accuracy]
-        )
-        return model
+        return self.model_compile(model)
 
     def create_dataset(self, data_csv_path: str, batch_size: int, normalize: bool = False) -> tuple:
         """訓練用のデータセットを読み込む
