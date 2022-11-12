@@ -46,8 +46,7 @@ class Ai(metaclass=abc.ABCMeta):
         self.model_data = None
         self.model_name = model_name
         self.ai_type = ai_type
-        self.img_height = 224
-        self.img_width = 224
+        self.image_size = nlib3.Vector2(define.DEFAULT_IMAGE_SIZE, define.DEFAULT_IMAGE_SIZE)
         return
 
     def preprocess_image(self, img_path: Path | str, normalize: bool = False) -> tf.Tensor:
@@ -62,7 +61,7 @@ class Ai(metaclass=abc.ABCMeta):
         """
         img_raw = tf.io.read_file(str(img_path))
         image = tf.image.decode_image(img_raw, channels=3)
-        image = tf.image.resize(image, (self.img_height, self.img_width))
+        image = tf.image.resize(image, (self.image_size.y, self.image_size.x))
         if normalize:
             image /= 255.0                  # normalize to [0,1] range
         image = tf.expand_dims(image, 0)    # 次元を一つ増やしてバッチ化する
@@ -79,7 +78,7 @@ class Ai(metaclass=abc.ABCMeta):
             画像のテンソル
         """
         tf.keras.preprocessing.image.img_to_array(image)
-        image = tf.image.resize(image, (self.img_height, self.img_width))
+        image = tf.image.resize(image, (self.image_size.y, self.image_size.x))
         if normalize:
             image /= 255.0                  # normalize to [0,1] range
         image = tf.expand_dims(image, 0)    # 次元を一つ増やしてバッチ化する

@@ -49,7 +49,7 @@ class ImageClassificationAi(ai.Ai):
         Returns:
             tensorflow のモデル
         """
-        vgg16 = tf.keras.applications.vgg16.VGG16(include_top=False, input_shape=(self.img_height, self.img_width, 3))
+        vgg16 = tf.keras.applications.vgg16.VGG16(include_top=False, input_shape=define.DEFAULT_INPUT_SHAPE)
 
         top_model = tf.keras.Sequential()
         top_model.add(tf.keras.layers.Flatten(input_shape=vgg16.output_shape[1:]))
@@ -84,7 +84,7 @@ class ImageClassificationAi(ai.Ai):
         Returns:
             tensorflow のモデル
         """
-        mobile_net_v2 = tf.keras.applications.mobilenet_v2.MobileNetV2(input_shape=(self.img_height, self.img_width, 3), classes=num_classes, weights=None)
+        mobile_net_v2 = tf.keras.applications.mobilenet_v2.MobileNetV2(classes=num_classes, weights=None)
 
         if not trainable:
             for layer in mobile_net_v2.layers[:154]:
@@ -107,7 +107,7 @@ class ImageClassificationAi(ai.Ai):
         Returns:
             tensorflow のモデル
         """
-        resnet = resnet_rs.ResNetRS152(include_top=False, input_shape=(self.img_height, self.img_width, 3), weights="imagenet-i224")
+        resnet = resnet_rs.ResNetRS152(include_top=False, input_shape=define.DEFAULT_INPUT_SHAPE, weights="imagenet-i224")
 
         x = tf.keras.layers.Flatten(input_shape=resnet.output_shape[1:])(resnet.output)
         x = tf.keras.layers.Dense(256, activation="relu")(x)
@@ -141,7 +141,7 @@ class ImageClassificationAi(ai.Ai):
         Returns:
             tensorflow のモデル
         """
-        resnet = resnet_rs.ResNetRS152(include_top=False, input_shape=(self.img_height, self.img_width, 3), weights="imagenet-i224")
+        resnet = resnet_rs.ResNetRS152(include_top=False, input_shape=define.DEFAULT_INPUT_SHAPE, weights="imagenet-i224")
 
         top_model = tf.keras.Sequential()
         top_model.add(tf.keras.layers.Flatten(input_shape=resnet.output_shape[1:]))
@@ -181,14 +181,14 @@ class ImageClassificationAi(ai.Ai):
         generator = self.create_generator(normalize)
         train_ds = generator.flow_from_directory(
             dataset_path,
-            target_size = (self.img_height, self.img_width),
+            target_size = (self.image_size.y, self.image_size.x),
             batch_size = batch_size,
             seed=define.RANDOM_SEED,
             class_mode="categorical",
             subset = "training")
         val_ds = generator.flow_from_directory(
             dataset_path,
-            target_size = (self.img_height, self.img_width),
+            target_size = (self.image_size.y, self.image_size.x),
             batch_size = batch_size,
             seed=define.RANDOM_SEED,
             class_mode="categorical",

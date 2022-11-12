@@ -62,7 +62,7 @@ class ImageMultiLabelAi(ai.Ai):
         Returns:
             tensorflow のモデル
         """
-        resnet = resnet_rs.ResNetRS152(include_top=False, input_shape=(self.img_height, self.img_width, 3), weights="imagenet-i224")
+        resnet = resnet_rs.ResNetRS152(include_top=False, input_shape=define.DEFAULT_INPUT_SHAPE, weights="imagenet-i224")
 
         x = tf.keras.layers.Flatten(input_shape=resnet.output_shape[1:])(resnet.output)
         x = tf.keras.layers.Dense(256, activation="relu")(x)
@@ -96,7 +96,7 @@ class ImageMultiLabelAi(ai.Ai):
         Returns:
             tensorflow のモデル
         """
-        resnet = resnet_rs.ResNetRS152(include_top=False, input_shape=(self.img_height, self.img_width, 3), weights="imagenet-i224")
+        resnet = resnet_rs.ResNetRS152(include_top=False, input_shape=define.DEFAULT_INPUT_SHAPE, weights="imagenet-i224")
 
         top_model = tf.keras.Sequential()
         top_model.add(tf.keras.layers.Flatten(input_shape=resnet.output_shape[1:]))
@@ -142,7 +142,7 @@ class ImageMultiLabelAi(ai.Ai):
             df,
             directory=str(Path(data_csv_path).parent),			# csv ファイルが保存されていたディレクトリを画像ファイルの親ディレクトリにする
             y_col=self.y_col_name,
-            target_size=(self.img_height, self.img_width),
+            target_size=(self.image_size.y, self.image_size.x),
             batch_size=batch_size,
             seed=define.RANDOM_SEED,
             class_mode="categorical",
@@ -153,7 +153,7 @@ class ImageMultiLabelAi(ai.Ai):
             df,
             directory=str(Path(data_csv_path).parent),
             y_col=self.y_col_name,
-            target_size=(self.img_height, self.img_width),
+            target_size=(self.image_size.y, self.image_size.x),
             batch_size=batch_size,
             seed=define.RANDOM_SEED,
             class_mode="categorical",

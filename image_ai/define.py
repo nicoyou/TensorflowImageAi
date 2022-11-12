@@ -62,3 +62,6 @@ RANDOM_SEED: Final[int] = 54
 CURRENT_DIR: Final[Path] = Path(__file__).parent
 MODEL_DIR: Final[Path] = CURRENT_DIR / "models"
 MODEL_FILE: Final[str] = "model"
+
+DEFAULT_IMAGE_SIZE: Final[int] = 224
+DEFAULT_INPUT_SHAPE: Final[tuple[int, int, int]] = (DEFAULT_IMAGE_SIZE, DEFAULT_IMAGE_SIZE, 3)
