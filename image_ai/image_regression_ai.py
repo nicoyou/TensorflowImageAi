@@ -225,7 +225,10 @@ class ImageRegressionAi(ai.Ai):
             for j in range(len(row[0])):
                 result = self.model(tf.expand_dims(row[0][j], 0))[0]
                 ax = fig.add_subplot(3, 8, j * 2 + 1)
-                ax.imshow(row[0][j])
+                if self.get_normalize_flag():
+                    ax.imshow(row[0][j])
+                else:
+                    ax.imshow(tf.cast(row[0][j], tf.int32))
                 ax = fig.add_subplot(3, 8, j * 2 + 2)
                 color = "blue"
                 if abs(row[1][j] - result[0]) > 0.17:

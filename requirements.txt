@@ -12,7 +12,7 @@ pandas
 scipy
 
 # Model diagram output
-pydot3
+pydot
 pydotplus
 graphviz
 

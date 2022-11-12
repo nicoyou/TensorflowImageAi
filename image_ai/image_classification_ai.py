@@ -267,7 +267,10 @@ class ImageClassificationAi(ai.Ai):
             for j in range(len(row[0])):			# 最大12の画像数
                 result = self.model(tf.expand_dims(row[0][j], 0))[0]
                 ax = fig.add_subplot(3, 8, j * 2 + 1)
-                ax.imshow(row[0][j])
+                if self.get_normalize_flag():
+                    ax.imshow(row[0][j])
+                else:
+                    ax.imshow(tf.cast(row[0][j], tf.int32))
                 ax = fig.add_subplot(3, 8, j * 2 + 2)
                 color = "blue"
                 if list(row[1][j]).index(1) != list(result).index(max(result)):

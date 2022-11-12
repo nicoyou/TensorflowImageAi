@@ -251,7 +251,10 @@ class ImageMultiLabelAi(ai.Ai):
                 result = [[k, v] for k, v in result.items()]
                 result = sorted(result, reverse=True, key=lambda x: x[1])			# 確率が高いものから順に表示する
                 ax = fig.add_subplot(3, 8, j * 2 + 1)
-                ax.imshow(row[0][j])
+                if self.get_normalize_flag():
+                    ax.imshow(row[0][j])
+                else:
+                    ax.imshow(tf.cast(row[0][j], tf.int32))
                 ax = fig.add_subplot(3, 8, j * 2 + 2)
                 for iy, (k, v) in enumerate(result[:10]):
                     if v < 0.01:								# 確率が 1 % 以下のものは表示しない
