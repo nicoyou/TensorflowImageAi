@@ -31,7 +31,7 @@ class ImageRegressionAi(ai.Ai):
         """
         model.compile(
             loss="mean_squared_error",
-            optimizer=tf.keras.optimizers.Adam(learning_rate=0.0002),
+            optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),
             metrics=[self.accuracy]
         )
         return model
@@ -148,7 +148,7 @@ class ImageRegressionAi(ai.Ai):
         if not trainable:
             nlib3.print_error_log("EfficientNetV2 モデルでは trainable に False を指定できません")
         model = tf.keras.applications.EfficientNetV2B0(weights=None, classes=1, classifier_activation="linear")
-        return self.compile_model(model)
+        return self.compile_model(model, 0.001)
 
     def create_model_efficient_net_v2_s(self, trainable: bool) -> Any:
         """EfficientNetV2Sの転移学習モデルを作成する
@@ -163,7 +163,7 @@ class ImageRegressionAi(ai.Ai):
         if not trainable:
             nlib3.print_error_log("EfficientNetV2 モデルでは trainable に False を指定できません")
         model = tf.keras.applications.EfficientNetV2S(weights=None, classes=1, classifier_activation="linear")
-        return self.compile_model(model)
+        return self.compile_model(model, 0.001)
 
     def create_dataset(self, data_csv_path: str, batch_size: int, normalize: bool = False) -> tuple:
         """訓練用のデータセットを読み込む

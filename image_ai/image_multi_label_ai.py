@@ -147,7 +147,7 @@ class ImageMultiLabelAi(ai.Ai):
         if not trainable:
             nlib3.print_error_log("EfficientNetV2 モデルでは trainable に False を指定できません")
         model = tf.keras.applications.EfficientNetV2B0(weights=None, classes=num_classes, classifier_activation="sigmoid")
-        return self.compile_model(model)
+        return self.compile_model(model, 0.001)
 
     def create_model_efficient_net_v2_s(self, num_classes: int, trainable: bool) -> Any:
         """EfficientNetV2Sの転移学習モデルを作成する
@@ -162,7 +162,7 @@ class ImageMultiLabelAi(ai.Ai):
         if not trainable:
             nlib3.print_error_log("EfficientNetV2 モデルでは trainable に False を指定できません")
         model = tf.keras.applications.EfficientNetV2S(weights=None, classes=num_classes, classifier_activation="sigmoid")
-        return self.compile_model(model)
+        return self.compile_model(model, 0.001)
 
     def create_dataset(self, data_csv_path: str, batch_size: int, normalize: bool = False) -> tuple:
         """訓練用のデータセットを読み込む
