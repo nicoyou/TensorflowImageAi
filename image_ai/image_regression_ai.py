@@ -19,7 +19,7 @@ class ImageRegressionAi(ai.Ai):
         self.y_col_name = "class"
         return
 
-    def compile_model(self, model: Any, learning_rate: float=0.0002):
+    def compile_model(self, model: Any, learning_rate: float = 0.0002):
         """モデルを回帰問題に最適なパラメータでコンパイルする
 
         Args:
@@ -29,11 +29,7 @@ class ImageRegressionAi(ai.Ai):
         Returns:
             コンパイル後のモデル
         """
-        model.compile(
-            loss="mean_squared_error",
-            optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),
-            metrics=[self.accuracy]
-        )
+        model.compile(loss="mean_squared_error", optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate), metrics=[self.accuracy])
         return model
 
     def create_model(self, model_type: define.ModelType, num_classes: int, trainable: bool = False) -> Any:
@@ -71,10 +67,8 @@ class ImageRegressionAi(ai.Ai):
         """
         pred_error = abs(y_true - y_pred)
         result = tf.divide(
-            tf.reduce_sum(
-                tf.cast(pred_error < 0.1, tf.float32)) * 0.5 + tf.reduce_sum(tf.cast(pred_error < 0.2, tf.float32)) * 0.5,		# 誤差が 0.1 以下なら 1, 0.2 以下なら 0.5 とする
-                tf.cast(len(y_pred), tf.float32)
-        )
+            tf.reduce_sum(tf.cast(pred_error < 0.1, tf.float32)) * 0.5 + tf.reduce_sum(tf.cast(pred_error < 0.2, tf.float32)) * 0.5, # 誤差が 0.1 以下なら 1, 0.2 以下なら 0.5 とする
+            tf.cast(len(y_pred), tf.float32))
         return result
 
     def create_model_resnet_rs_256(self, trainable: bool) -> Any:
@@ -95,10 +89,7 @@ class ImageRegressionAi(ai.Ai):
 
         output = tf.keras.layers.Dense(1, activation="linear")(x)
 
-        model = tf.keras.models.Model(
-            inputs=resnet.input,
-            outputs=output
-        )
+        model = tf.keras.models.Model(inputs=resnet.input, outputs=output)
 
         if not trainable:
             for layer in model.layers[:779]:
@@ -124,10 +115,7 @@ class ImageRegressionAi(ai.Ai):
         top_model.add(tf.keras.layers.Dropout(0.25))
         top_model.add(tf.keras.layers.Dense(1, activation="linear"))
 
-        model = tf.keras.models.Model(
-            inputs=resnet.input,
-            outputs=top_model(resnet.output)
-        )
+        model = tf.keras.models.Model(inputs=resnet.input, outputs=top_model(resnet.output))
 
         if not trainable:
             for layer in model.layers[:779]:
@@ -179,18 +167,18 @@ class ImageRegressionAi(ai.Ai):
         """
         generator = self.create_generator(normalize)
         df = pandas.read_csv(data_csv_path)
-        df = df.dropna(subset=[self.y_col_name])            # 空の行を取り除く
-        df = df.sample(frac=1, random_state=0)				# ランダムに並び変える
+        df = df.dropna(subset=[self.y_col_name])                    # 空の行を取り除く
+        df = df.sample(frac=1, random_state=0)                      # ランダムに並び変える
         train_ds = generator.flow_from_dataframe(
             df,
-            directory=Path(data_csv_path).parent,			# csv ファイルが保存されていたディレクトリを画像ファイルの親ディレクトリにする
+            directory=Path(data_csv_path).parent,                   # csv ファイルが保存されていたディレクトリを画像ファイルの親ディレクトリにする
             y_col=self.y_col_name,
             target_size=(self.image_size.y, self.image_size.x),
             batch_size=batch_size,
             seed=define.RANDOM_SEED,
             class_mode="raw",
             subset="training",
-            validate_filenames=False,               # パスチェックを行わない
+            validate_filenames=False,                               # パスチェックを行わない
         )
         val_ds = generator.flow_from_dataframe(
             df,
@@ -201,9 +189,9 @@ class ImageRegressionAi(ai.Ai):
             seed=define.RANDOM_SEED,
             class_mode="raw",
             subset="validation",
-            validate_filenames=False,               # パスチェックを行わない
+            validate_filenames=False,                               # パスチェックを行わない
         )
-        return train_ds, val_ds		# [[[img*batch], [class*batch]], ...] の形式
+        return train_ds, val_ds                                     # [[[img*batch], [class*batch]], ...] の形式
 
     def count_image_from_dataset(self, dataset: Any) -> tuple:
         """データセットに含まれる画像の数を取得する
@@ -228,7 +216,7 @@ class ImageRegressionAi(ai.Ai):
                     image_num[value] = 1
 
             progbar.update(i + 1)
-            if i == len(dataset) - 1:							# 無限にループするため、最後まで取得したら終了する
+            if i == len(dataset) - 1:   # 無限にループするため、最後まで取得したら終了する
                 break
         dataset.reset()
         class_indices = {row: i for i, row in enumerate(list(image_num.keys()))}
@@ -240,7 +228,7 @@ class ImageRegressionAi(ai.Ai):
         Args:
             model_type: モデルの種類
         """
-        match(model_type):
+        match model_type:
             case define.ModelType.efficient_net_v2_b0_regr:
                 self.need_image_normalization = False
             case define.ModelType.efficient_net_v2_s_regr:

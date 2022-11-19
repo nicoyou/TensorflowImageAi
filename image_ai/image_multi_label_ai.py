@@ -21,7 +21,7 @@ class ImageMultiLabelAi(ai.Ai):
         self.y_col_name = "labels"
         return
 
-    def compile_model(self, model: Any, learning_rate: float=0.0002):
+    def compile_model(self, model: Any, learning_rate: float = 0.0002):
         """モデルを多ラベル問題に最適なパラメータでコンパイルする
 
         Args:
@@ -31,11 +31,7 @@ class ImageMultiLabelAi(ai.Ai):
         Returns:
             コンパイル後のモデル
         """
-        model.compile(
-            loss="binary_crossentropy",
-            optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),
-            metrics=[self.accuracy]
-        )
+        model.compile(loss="binary_crossentropy", optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate), metrics=[self.accuracy])
         return model
 
     def create_model(self, model_type: define.ModelType, num_classes: int, trainable: bool = False) -> Any | None:
@@ -93,10 +89,7 @@ class ImageMultiLabelAi(ai.Ai):
 
         output = tf.keras.layers.Dense(num_classes, activation="sigmoid")(x)
 
-        model = tf.keras.models.Model(
-            inputs=resnet.input,
-            outputs=output
-        )
+        model = tf.keras.models.Model(inputs=resnet.input, outputs=output)
 
         if not trainable:
             for layer in model.layers[:779]:
@@ -123,10 +116,7 @@ class ImageMultiLabelAi(ai.Ai):
         top_model.add(tf.keras.layers.Dropout(0.25))
         top_model.add(tf.keras.layers.Dense(num_classes, activation="sigmoid"))
 
-        model = tf.keras.models.Model(
-            inputs=resnet.input,
-            outputs=top_model(resnet.output)
-        )
+        model = tf.keras.models.Model(inputs=resnet.input, outputs=top_model(resnet.output))
 
         if not trainable:
             for layer in model.layers[:779]:
@@ -178,19 +168,19 @@ class ImageMultiLabelAi(ai.Ai):
         """
         generator = self.create_generator(normalize)
         df = pandas.read_csv(data_csv_path)
-        df = df.dropna(subset=[self.y_col_name])                # 空の行を取り除く
-        df[self.y_col_name] = df[self.y_col_name].str.split(",")				# 複数のラベルを格納している列は文字列からリストに変換する
-        df = df.sample(frac=1, random_state=0)					# ランダムに並び変える
+        df = df.dropna(subset=[self.y_col_name])                    # 空の行を取り除く
+        df[self.y_col_name] = df[self.y_col_name].str.split(",")    # 複数のラベルを格納している列は文字列からリストに変換する
+        df = df.sample(frac=1, random_state=0)                      # ランダムに並び変える
         train_ds = generator.flow_from_dataframe(
             df,
-            directory=str(Path(data_csv_path).parent),			# csv ファイルが保存されていたディレクトリを画像ファイルの親ディレクトリにする
+            directory=str(Path(data_csv_path).parent),              # csv ファイルが保存されていたディレクトリを画像ファイルの親ディレクトリにする
             y_col=self.y_col_name,
             target_size=(self.image_size.y, self.image_size.x),
             batch_size=batch_size,
             seed=define.RANDOM_SEED,
             class_mode="categorical",
             subset="training",
-            validate_filenames=False,               # パスチェックを行わない
+            validate_filenames=False,                               # パスチェックを行わない
         )
         val_ds = generator.flow_from_dataframe(
             df,
@@ -201,9 +191,9 @@ class ImageMultiLabelAi(ai.Ai):
             seed=define.RANDOM_SEED,
             class_mode="categorical",
             subset="validation",
-            validate_filenames=False,               # パスチェックを行わない
+            validate_filenames=False,                               # パスチェックを行わない
         )
-        return train_ds, val_ds		# [[[img*batch], [class*batch]], ...] の形式
+        return train_ds, val_ds                                     # [[[img*batch], [class*batch]], ...] の形式
 
     def count_image_from_dataset(self, dataset: Any) -> tuple:
         """データセットに含まれるラベルごとの画像の数を取得する
@@ -217,16 +207,16 @@ class ImageMultiLabelAi(ai.Ai):
         """
         progbar = tf.keras.utils.Progbar(len(dataset))
         class_image_num = []
-        for i in range(len(dataset.class_indices)):					# 各ラベルの読み込み枚数を 0 で初期化して、カウント用のキーを生成する ( 3 ラベル中の 1 番目なら[1, -1, -1] )
+        for i in range(len(dataset.class_indices)):     # 各ラベルの読み込み枚数を 0 で初期化して、カウント用のキーを生成する ( 3 ラベル中の 1 番目なら[1, -1, -1] )
             class_image_num.append([0, [1 if i == row else -1 for row in range(len(dataset.class_indices))]])
 
         for i, row in enumerate(dataset):
-            for image_num in class_image_num:						# 各ラベルのデータ数を計測する
-                image_num[0] += np.count_nonzero([np.any(x) for x in (row[1] == image_num[1])])		# numpyでキーが一致するものを any 条件でカウントする
+            for image_num in class_image_num:                                                       # 各ラベルのデータ数を計測する
+                image_num[0] += np.count_nonzero([np.any(x) for x in (row[1] == image_num[1])])     # numpyでキーが一致するものを any 条件でカウントする
             progbar.update(i + 1)
-            if i == len(dataset) - 1:								# 無限にループするため、最後まで取得したら終了する
+            if i == len(dataset) - 1:                                                               # 無限にループするため、最後まで取得したら終了する
                 break
-        class_image_num = [row for row, label in class_image_num]	# 不要になったラベルのキーを破棄する
+        class_image_num = [row for row, label in class_image_num]                                   # 不要になったラベルのキーを破棄する
         dataset.reset()
         return class_image_num, dataset.class_indices
 
@@ -236,7 +226,7 @@ class ImageMultiLabelAi(ai.Ai):
         Args:
             model_type: モデルの種類
         """
-        match(model_type):
+        match model_type:
             case define.ModelType.efficient_net_v2_b0_multi_label:
                 self.need_image_normalization = False
             case define.ModelType.efficient_net_v2_s_multi_label:
@@ -295,18 +285,18 @@ class ImageMultiLabelAi(ai.Ai):
             max_loop_num: 結果を表示する最大回数 ( 1 回につき複数枚の画像が表示される )
             use_val_ds: データセットから訓練用の画像を使用するかどうか ( False でテスト用データを使用する )
         """
-        train_ds, test_ds = self.create_dataset(data_csv_path, 12, normalize=self.need_image_normalization)		# バッチサイズを表示する画像数と同じにする
+        train_ds, test_ds = self.create_dataset(data_csv_path, 12, normalize=self.need_image_normalization)     # バッチサイズを表示する画像数と同じにする
         if not use_val_ds:
             test_ds = train_ds
 
         for i, row in enumerate(test_ds):
             fig = plt.figure(figsize=(16, 9))
-            for j in range(len(row[0])):			# 最大12の画像数
+            for j in range(len(row[0])):                                    # 最大12の画像数
                 result = self.predict(tf.expand_dims(row[0][j], 0))
                 result = self.result_to_label_dict(result)
                 result_true = self.result_to_label_dict(row[1][j])
                 result = [[k, v] for k, v in result.items()]
-                result = sorted(result, reverse=True, key=lambda x: x[1])			# 確率が高いものから順に表示する
+                result = sorted(result, reverse=True, key=lambda x: x[1])   # 確率が高いものから順に表示する
                 ax = fig.add_subplot(3, 8, j * 2 + 1)
                 if self.need_image_normalization:
                     ax.imshow(row[0][j])
@@ -314,18 +304,18 @@ class ImageMultiLabelAi(ai.Ai):
                     ax.imshow(tf.cast(row[0][j], tf.int32))
                 ax = fig.add_subplot(3, 8, j * 2 + 2)
                 for iy, (k, v) in enumerate(result[:10]):
-                    if v < 0.01:								# 確率が 1 % 以下のものは表示しない
+                    if v < 0.01:                                            # 確率が 1 % 以下のものは表示しない
                         break
                     color = "black"
-                    if v > 0.7 and result_true[k] == 1:			# 教師データにも存在するラベルを検出できた場合
+                    if v > 0.7 and result_true[k] == 1:                     # 教師データにも存在するラベルを検出できた場合
                         color = "green"
-                    elif v > 0.7 and result_true[k] == 0:		# 教師データにないラベルを検出した場合
+                    elif v > 0.7 and result_true[k] == 0:                   # 教師データにないラベルを検出した場合
                         color = "red"
-                    elif v <= 0.7 and result_true[k] == 1:		# 教師データに存在するラベルを検出できなかった場合
+                    elif v <= 0.7 and result_true[k] == 1:                  # 教師データに存在するラベルを検出できなかった場合
                         color = "orange"
                     ax.text(0, 1 - (iy + 1) * 0.1, f" {k}: {v:.2f}", color=color)
             plt.show()
-            if i == len(test_ds) - 1 or i == max_loop_num - 1:												# 表示した回数がバッチ数を超えたら終了する
+            if i == len(test_ds) - 1 or i == max_loop_num - 1:              # 表示した回数がバッチ数を超えたら終了する
                 break
         return
 
