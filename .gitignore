@@ -1,17 +1,23 @@
-/.venv/
 __pycache__
+/.venv/
+/.vscode/
 /anime_face_detector/LICENSE
 
 # tensorflow GPUで使用するdll
-/image_ai/dll/
-/image_ai/CUDA/
+/tensorflow_image/dll/
+/tensorflow_image/CUDA/
 # 学習用のデータセット
 /dataset/
 *.csv
 # モデルの学習状態を保存する
-/image_ai/models/
-/image_ai/logs/
+/tensorflow_image/models/
+/tensorflow_image/logs/
 # ログを出力するディレクトリ
 /data/
 # テスト段階のプログラム
 /test/
+
+# パッケージ化
+/build/
+/dist/
+/tensorflow_image.egg-info/

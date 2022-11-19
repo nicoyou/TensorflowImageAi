@@ -48,6 +48,7 @@ class Ai(metaclass=abc.ABCMeta):
         self.model_name = model_name
         self.ai_type = ai_type
         self.image_size = nlib3.Vector2(define.DEFAULT_IMAGE_SIZE, define.DEFAULT_IMAGE_SIZE)
+        self.set_y_col_name("class")
         return
 
     def preprocess_image(self, img_path: Path | str, normalize: bool = False) -> tf.Tensor:
@@ -85,7 +86,7 @@ class Ai(metaclass=abc.ABCMeta):
         image = tf.expand_dims(image, 0)    # 次元を一つ増やしてバッチ化する
         return image
 
-    def create_generator(self, normalize: bool) -> tf.keras.preprocessing.image.ImageDataGenerator:
+    def create_generator(self, normalize: bool, test: bool = False) -> tf.keras.preprocessing.image.ImageDataGenerator:
         """データセットの前処理を行うジェネレーターを作成する
 
         Args:
@@ -95,13 +96,14 @@ class Ai(metaclass=abc.ABCMeta):
             ジェネレーター
         """
         params = {
-            "horizontal_flip": True,        # 左右を反転する
-            "rotation_range": 20,           # 度数法で最大変化時の角度を指定
-            "channel_shift_range": 15,      # 各画素値の値を加算・減算する ( 最大値を指定する )
-            "height_shift_range": 0.03,     # 中心位置を相対的にずらす ( 元画像の高さ X 値 の範囲内で垂直方向にずらす )
-            "width_shift_range": 0.03,
-            "validation_split": 0.1,        # 全体に対するテストデータの割合
+            "validation_split": 0.1,                # 全体に対するテストデータの割合
         }
+        if not test:
+            params["horizontal_flip"] = True        # 左右を反転する
+            params["rotation_range"] = 20           # 度数法で最大変化時の角度を指定
+            params["channel_shift_range"] = 15      # 各画素値の値を加算・減算する ( 最大値を指定する )
+            params["height_shift_range"] = 0.03     # 中心位置を相対的にずらす ( 元画像の高さ X 値 の範囲内で垂直方向にずらす )
+            params["width_shift_range"] = 0.03
         if normalize:
             params["rescale"] = 1. / 255
         return tf.keras.preprocessing.image.ImageDataGenerator(**params)
@@ -241,4 +243,13 @@ class Ai(metaclass=abc.ABCMeta):
         """モデルを h5 形式でファイルに保存する
         """
         self.model.save(define.MODEL_DIR / self.model_name / "model.h5")
+        return
+
+    def set_y_col_name(self, y_col_name: str) -> None:
+        """データセットの実際に使用するデータの列名を登録する
+
+        Args:
+            y_col_name: 列名
+        """
+        self.y_col_name = y_col_name
         return

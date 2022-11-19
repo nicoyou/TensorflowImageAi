@@ -54,18 +54,8 @@ class GanDataKey(str, enum.Enum):
     time = "time"
 
 
-class ImageDataKey(str, enum.Enum):
-    people = "people"
-
-
-class PersonDataKey(str, enum.Enum):
-    face_score = "face_score"
-    face_pos = "face_pos"
-    age = "age"
-
-
 RANDOM_SEED: Final[int] = 54
-CURRENT_DIR: Final[Path] = Path(__file__).parent
+CURRENT_DIR: Final[Path] = Path().cwd()
 MODEL_DIR: Final[Path] = CURRENT_DIR / "models"
 MODEL_FILE: Final[str] = "model"
 

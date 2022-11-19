@@ -4,10 +4,10 @@ from pathlib import Path
 from typing import Any
 
 import matplotlib.pyplot as plt
-import numpy as np
-import resnet_rs
-import tensorflow as tf
 import nlib3
+import numpy as np
+import pandas
+import tensorflow as tf
 
 from . import define
 
@@ -18,7 +18,7 @@ class ImageClassificationAi(ai.Ai):
         super().__init__(define.AiType.categorical, *args, **kwargs)
         return
 
-    def compile_model(self, model: Any, learning_rate: float=0.0002):
+    def compile_model(self, model: Any, learning_rate: float = 0.0002):
         """モデルを分類問題に最適なパラメータでコンパイルする
 
         Args:
@@ -79,10 +79,7 @@ class ImageClassificationAi(ai.Ai):
         top_model.add(tf.keras.layers.Dropout(0.25))
         top_model.add(tf.keras.layers.Dense(num_classes, activation="softmax"))
 
-        model = tf.keras.models.Model(
-            inputs=vgg16.input,
-            outputs=top_model(vgg16.output)
-        )
+        model = tf.keras.models.Model(inputs=vgg16.input, outputs=top_model(vgg16.output))
 
         if not trainable:
             for layer in model.layers[:15]:
@@ -118,6 +115,7 @@ class ImageClassificationAi(ai.Ai):
         Returns:
             tensorflow のモデル
         """
+        import resnet_rs
         resnet = resnet_rs.ResNetRS152(include_top=False, input_shape=define.DEFAULT_INPUT_SHAPE, weights="imagenet-i224")
 
         x = tf.keras.layers.Flatten(input_shape=resnet.output_shape[1:])(resnet.output)
@@ -126,10 +124,7 @@ class ImageClassificationAi(ai.Ai):
 
         output = tf.keras.layers.Dense(num_classes, activation="softmax")(x)
 
-        model = tf.keras.models.Model(
-            inputs=resnet.input,
-            outputs=output
-        )
+        model = tf.keras.models.Model(inputs=resnet.input, outputs=output)
 
         if not trainable:
             for layer in model.layers[:779]:
@@ -147,6 +142,7 @@ class ImageClassificationAi(ai.Ai):
         Returns:
             tensorflow のモデル
         """
+        import resnet_rs
         resnet = resnet_rs.ResNetRS152(include_top=False, input_shape=define.DEFAULT_INPUT_SHAPE, weights="imagenet-i224")
 
         top_model = tf.keras.Sequential()
@@ -156,10 +152,7 @@ class ImageClassificationAi(ai.Ai):
         top_model.add(tf.keras.layers.Dropout(0.25))
         top_model.add(tf.keras.layers.Dense(num_classes, activation="softmax"))
 
-        model = tf.keras.models.Model(
-            inputs=resnet.input,
-            outputs=top_model(resnet.output)
-        )
+        model = tf.keras.models.Model(inputs=resnet.input, outputs=top_model(resnet.output))
 
         if not trainable:
             for layer in model.layers[:779]:
@@ -201,7 +194,7 @@ class ImageClassificationAi(ai.Ai):
         """訓練用のデータセットを読み込む
 
         Args:
-            dataset_path: 教師データが保存されているディレクトリを指定する
+            dataset_path: 教師データが保存されているディレクトリを指定する ( csvでも可能 )
             batch_size: バッチサイズ
             normalize: 画像を前処理で 0 ～ 1 の範囲に正規化するかどうか
 
@@ -210,21 +203,52 @@ class ImageClassificationAi(ai.Ai):
             val_ds: テスト用のデータセット
         """
         generator = self.create_generator(normalize)
-        train_ds = generator.flow_from_directory(
-            dataset_path,
-            target_size = (self.image_size.y, self.image_size.x),
-            batch_size = batch_size,
-            seed=define.RANDOM_SEED,
-            class_mode="categorical",
-            subset = "training")
-        val_ds = generator.flow_from_directory(
-            dataset_path,
-            target_size = (self.image_size.y, self.image_size.x),
-            batch_size = batch_size,
-            seed=define.RANDOM_SEED,
-            class_mode="categorical",
-            subset = "validation")
-        return train_ds, val_ds		# [[[img*batch], [class*batch]], ...] の形式
+        generator_val = self.create_generator(normalize, True)
+
+        if Path(dataset_path).is_dir():
+            train_ds = generator.flow_from_directory(
+                dataset_path,
+                target_size=(self.image_size.y, self.image_size.x),
+                batch_size=batch_size,
+                seed=define.RANDOM_SEED,
+                class_mode="categorical",
+                subset="training",
+            )
+            val_ds = generator_val.flow_from_directory(
+                dataset_path,
+                target_size=(self.image_size.y, self.image_size.x),
+                batch_size=batch_size,
+                seed=define.RANDOM_SEED,
+                class_mode="categorical",
+                subset="validation",
+            )
+        else:
+            df = pandas.read_csv(dataset_path)
+            df = df.dropna(subset=[self.y_col_name])                    # 空の行を取り除く
+            df = df.sample(frac=1, random_state=0)                      # ランダムに並び変える
+            train_ds = generator.flow_from_dataframe(
+                df,
+                directory=str(Path(dataset_path).parent),              # csv ファイルが保存されていたディレクトリを画像ファイルの親ディレクトリにする
+                y_col=self.y_col_name,
+                target_size=(self.image_size.y, self.image_size.x),
+                batch_size=batch_size,
+                seed=define.RANDOM_SEED,
+                class_mode="categorical",
+                subset="training",
+                validate_filenames=False,                               # パスチェックを行わない
+            )
+            val_ds = generator.flow_from_dataframe(
+                df,
+                directory=str(Path(dataset_path).parent),
+                y_col=self.y_col_name,
+                target_size=(self.image_size.y, self.image_size.x),
+                batch_size=batch_size,
+                seed=define.RANDOM_SEED,
+                class_mode="categorical",
+                subset="validation",
+                validate_filenames=False,                               # パスチェックを行わない
+            )
+        return train_ds, val_ds     # [[[img*batch], [class*batch]], ...] の形式
 
     def count_image_from_dataset(self, dataset: Any) -> tuple:
         """データセットに含まれるクラスごとの画像の数を取得する
@@ -238,16 +262,16 @@ class ImageClassificationAi(ai.Ai):
         """
         progbar = tf.keras.utils.Progbar(len(dataset))
         class_image_num = []
-        for i in range(len(dataset.class_indices)):					# 各クラスの読み込み枚数を 0 で初期化して、カウント用のキーを生成する ( 3 クラス中の 1 番目なら[1, 0, 0] )
+        for i in range(len(dataset.class_indices)):     # 各クラスの読み込み枚数を 0 で初期化して、カウント用のキーを生成する ( 3 クラス中の 1 番目なら[1, 0, 0] )
             class_image_num.append([0, [1 if i == row else 0 for row in range(len(dataset.class_indices))]])
 
         for i, row in enumerate(dataset):
-            for image_num in class_image_num:						# 各クラスのデータ数を計測する
-                image_num[0] += np.count_nonzero([np.all(x) for x in (row[1] == image_num[1])])		# numpyでキーが一致するものをカウントする
+            for image_num in class_image_num:                                                       # 各クラスのデータ数を計測する
+                image_num[0] += np.count_nonzero([np.all(x) for x in (row[1] == image_num[1])])     # numpyでキーが一致するものをカウントする
             progbar.update(i + 1)
-            if i == len(dataset) - 1:								# 無限にループするため、最後まで取得したら終了する
+            if i == len(dataset) - 1:                                                               # 無限にループするため、最後まで取得したら終了する
                 break
-        class_image_num = [row for row, label in class_image_num]	# 不要になったラベルのキーを破棄する
+        class_image_num = [row for row, label in class_image_num]                                   # 不要になったラベルのキーを破棄する
         dataset.reset()
         return class_image_num, dataset.class_indices
 
@@ -257,7 +281,7 @@ class ImageClassificationAi(ai.Ai):
         Args:
             model_type: モデルの種類
         """
-        match(model_type):
+        match model_type:
             case define.ModelType.vgg16_512:
                 self.need_image_normalization = False
             case define.ModelType.efficient_net_v2_b0:
@@ -304,14 +328,14 @@ class ImageClassificationAi(ai.Ai):
             max_loop_num: 結果を表示する最大回数 ( 1 回につき複数枚の画像が表示される )
             use_val_ds: データセットから訓練用の画像を使用するかどうか ( False でテスト用データを使用する )
         """
-        train_ds, test_ds = self.create_dataset(dataset_path, 12, normalize=self.need_image_normalization)		# バッチサイズを表示する画像数と同じにする
+        train_ds, test_ds = self.create_dataset(dataset_path, 12, normalize=self.need_image_normalization)  # バッチサイズを表示する画像数と同じにする
         if not use_val_ds:
             test_ds = train_ds
 
         for i, row in enumerate(test_ds):
             class_name_list = list(self.model_data[define.AiDataKey.class_indices].keys())
             fig = plt.figure(figsize=(16, 9))
-            for j in range(len(row[0])):			# 最大12の画像数
+            for j in range(len(row[0])):                        # 最大12の画像数
                 result = self.model(tf.expand_dims(row[0][j], 0))[0]
                 ax = fig.add_subplot(3, 8, j * 2 + 1)
                 if self.need_image_normalization:
@@ -324,7 +348,7 @@ class ImageClassificationAi(ai.Ai):
                     color = "red"
                 ax.bar(np.array(range(len(class_name_list))), result, tick_label=class_name_list, color=color)
             plt.show()
-            if i == len(test_ds) - 1 or i == max_loop_num - 1:												# 表示した回数がバッチ数を超えたら終了する
+            if i == len(test_ds) - 1 or i == max_loop_num - 1:  # 表示した回数がバッチ数を超えたら終了する
                 break
         return
 
@@ -347,7 +371,7 @@ class ImageClassificationAi(ai.Ai):
             test_ds = train_ds
 
         for i, row in enumerate(test_ds):
-            for j in range(len(row[0])):			# 最大12の画像数
+            for j in range(len(row[0])):    # 最大12の画像数
                 result = self.model(tf.expand_dims(row[0][j], 0))[0]
                 if list(row[1][j]).index(1) != list(result).index(max(result)):
                     result_list.append(([float(row) for row in result], list(row[1][j])))

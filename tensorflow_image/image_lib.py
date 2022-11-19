@@ -1,5 +1,5 @@
 import glob
-import pathlib
+from pathlib import Path
 from typing import Any
 
 import cv2
@@ -75,7 +75,7 @@ def display_images(images: tuple | list) -> None:
     return
 
 
-def get_image_path_from_dir(dir_path: str) -> list:
+def get_image_path_from_dir(dir_path: str | Path) -> list:
     """ディレクトリ内全ての画像を再帰的に検索する
 
     Args:
@@ -84,10 +84,10 @@ def get_image_path_from_dir(dir_path: str) -> list:
     Returns:
         検出した画像パスのリスト
     """
-    images = glob.glob(str(pathlib.Path(dir_path, "**")), recursive=True)
+    images = glob.glob(str(Path(dir_path, "**")), recursive=True)
     image_path_list = []
     for image in images:
-        image_path = pathlib.Path(image)
+        image_path = Path(image)
         if image_path.suffix[1:].lower() in IMAGE_EXTENSION_LIST and image_path.is_file():
             image_path_list.append(image_path)
     return image_path_list
