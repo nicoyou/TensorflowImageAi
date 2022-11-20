@@ -1,20 +1,20 @@
 import os
-import pathlib
+from pathlib import Path
 
 import tqdm
 from PIL import Image
 
-import anime_face_detector
-import define
-import image_lib
+import image_ai
+
+from . import AnimeFaceDetector
 
 
 class AnimeFaceAi():
     def __init__(self):
-        self.afd = anime_face_detector.AnimeFaceDetector()
+        self.afd = AnimeFaceDetector()
         return
 
-    def crop_image_face_dir(self, in_dir: str, out_dir: str, overwrite: bool = False) -> int:
+    def crop_image_face_dir(self, in_dir: str | Path, out_dir: str | Path, overwrite: bool = False) -> int:
         """指定されたディレクトリ内のイラストの顔を切り抜いて、ディレクトリ構成を維持したまま指定されたディレクトリに出力する
 
         Args:
@@ -25,10 +25,10 @@ class AnimeFaceAi():
         Returns:
             切り抜いた顔の数
         """
-        images = image_lib.get_image_path_from_dir(in_dir)
+        images = image_ai.get_image_path_from_dir(in_dir)
         count = 0
         for image in tqdm.tqdm(images):
-            out_path = pathlib.Path(out_dir, image)
+            out_path = Path(out_dir, Path(image).relative_to(in_dir))   # 画像を探したディレクトリを root としてそれ以降のパスを引き継ぐ
             if overwrite or not (out_path.parent / (out_path.stem + f"_{0:02}.png")).is_file():
                 os.makedirs(out_path.parent, exist_ok=True)
                 faces = self.afd.get_faces(image)
@@ -53,13 +53,13 @@ class AnimeFaceAi():
         result = {}
         faces = self.afd.get_faces(image)
         if len(faces) >= 1:
-            result[define.ImageDataKey.people] = []
+            result[image_ai.ImageDataKey.people] = []
             for row in faces:
                 face_result = {
-                    define.PersonDataKey.face_score: row["score"],
-                    define.PersonDataKey.face_pos: row["bbox"],
+                    image_ai.PersonDataKey.face_score: row["score"],
+                    image_ai.PersonDataKey.face_pos: row["bbox"],
                 }
-                result[define.ImageDataKey.people].append(face_result)
+                result[image_ai.ImageDataKey.people].append(face_result)
         return result
 
     def get_face_data_from_imagelist(self, image_list: list[str]) -> dict:
@@ -76,9 +76,9 @@ class AnimeFaceAi():
             try:
                 result = self.get_face_data(row)
             except Exception:
-                image_data[str(pathlib.Path(row).name)] = {}
+                image_data[str(Path(row).name)] = {}
             else:
-                image_data[str(pathlib.Path(row).name)] = result
+                image_data[str(Path(row).name)] = result
         return image_data
 
 
@@ -87,6 +87,6 @@ if __name__ == "__main__":
 
     afai = AnimeFaceAi()
     image_dir = "./dataset"
-    images = image_lib.get_image_path_from_dir(image_dir)
-    nlib3.save_json(pathlib.Path(image_dir, "image_data.json"), afai.get_face_data_from_imagelist(images))
+    images = image_ai.get_image_path_from_dir(image_dir)
+    nlib3.save_json(Path(image_dir, "image_data.json"), afai.get_face_data_from_imagelist(images))
     #afai.crop_image_face_dir("./dataset", "./out")
