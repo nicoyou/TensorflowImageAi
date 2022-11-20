@@ -7,6 +7,7 @@ from PIL import Image
 import image_ai
 
 from . import AnimeFaceDetector
+from . import define
 
 
 class AnimeFaceAi():
@@ -53,16 +54,16 @@ class AnimeFaceAi():
         result = {}
         faces = self.afd.get_faces(image)
         if len(faces) >= 1:
-            result[image_ai.ImageDataKey.people] = []
+            result[define.ImageDataKey.people] = []
             for row in faces:
                 face_result = {
-                    image_ai.PersonDataKey.face_score: row["score"],
-                    image_ai.PersonDataKey.face_pos: row["bbox"],
+                    define.PersonDataKey.face_score: row["score"],
+                    define.PersonDataKey.face_pos: row["bbox"],
                 }
-                result[image_ai.ImageDataKey.people].append(face_result)
+                result[define.ImageDataKey.people].append(face_result)
         return result
 
-    def get_face_data_from_imagelist(self, image_list: list[str]) -> dict:
+    def get_face_data_from_imagelist(self, image_list: list[str | Path]) -> dict:
         """複数の画像のアニメ顔を検出する
 
         Args:
