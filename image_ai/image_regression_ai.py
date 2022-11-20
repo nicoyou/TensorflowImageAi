@@ -16,7 +16,6 @@ class ImageRegressionAi(ai.Ai):
     """画像の回帰分析AI"""
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(define.AiType.regression, *args, **kwargs)
-        self.y_col_name = "class"
         return
 
     def compile_model(self, model: Any, learning_rate: float = 0.0002):
@@ -284,13 +283,4 @@ class ImageRegressionAi(ai.Ai):
             plt.show()
             if i == len(test_ds) - 1 or i == max_loop_num - 1:
                 break
-        return
-
-    def set_y_col_name(self, y_col_name: str) -> None:
-        """データセットの実際に使用するデータの列名を登録する
-
-        Args:
-            y_col_name: 列名
-        """
-        self.y_col_name = y_col_name
         return

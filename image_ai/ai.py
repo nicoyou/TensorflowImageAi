@@ -48,6 +48,7 @@ class Ai(metaclass=abc.ABCMeta):
         self.model_name = model_name
         self.ai_type = ai_type
         self.image_size = nlib3.Vector2(define.DEFAULT_IMAGE_SIZE, define.DEFAULT_IMAGE_SIZE)
+        self.y_col_name = "class"
         return
 
     def preprocess_image(self, img_path: Path | str, normalize: bool = False) -> tf.Tensor:
@@ -241,4 +242,13 @@ class Ai(metaclass=abc.ABCMeta):
         """モデルを h5 形式でファイルに保存する
         """
         self.model.save(define.MODEL_DIR / self.model_name / "model.h5")
+        return
+
+    def set_y_col_name(self, y_col_name: str) -> None:
+        """データセットの実際に使用するデータの列名を登録する
+
+        Args:
+            y_col_name: 列名
+        """
+        self.y_col_name = y_col_name
         return

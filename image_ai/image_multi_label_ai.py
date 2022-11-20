@@ -3,13 +3,13 @@ from . import ai
 from pathlib import Path
 from typing import Any
 
-from keras import backend
 import matplotlib.pyplot as plt
+import nlib3
 import numpy as np
 import pandas
 import resnet_rs
 import tensorflow as tf
-import nlib3
+from keras import backend
 
 from . import define
 
@@ -18,7 +18,7 @@ class ImageMultiLabelAi(ai.Ai):
     """多ラベル分類AI"""
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(define.AiType.multi_label, *args, **kwargs)
-        self.y_col_name = "labels"
+        self.y_col_name = "labels"          # 初期値を変更する
         return
 
     def compile_model(self, model: Any, learning_rate: float = 0.0002):
@@ -317,13 +317,4 @@ class ImageMultiLabelAi(ai.Ai):
             plt.show()
             if i == len(test_ds) - 1 or i == max_loop_num - 1:              # 表示した回数がバッチ数を超えたら終了する
                 break
-        return
-
-    def set_y_col_name(self, y_col_name: str) -> None:
-        """データセットの実際に使用するデータの列名を登録する
-
-        Args:
-            y_col_name: 列名
-        """
-        self.y_col_name = y_col_name
         return

@@ -4,10 +4,11 @@ from pathlib import Path
 from typing import Any
 
 import matplotlib.pyplot as plt
+import nlib3
 import numpy as np
+import pandas
 import resnet_rs
 import tensorflow as tf
-import nlib3
 
 from . import define
 
@@ -192,7 +193,7 @@ class ImageClassificationAi(ai.Ai):
         """訓練用のデータセットを読み込む
 
         Args:
-            dataset_path: 教師データが保存されているディレクトリを指定する
+            dataset_path: 教師データが保存されているディレクトリを指定する ( csvでも可能 )
             batch_size: バッチサイズ
             normalize: 画像を前処理で 0 ～ 1 の範囲に正規化するかどうか
 
@@ -201,22 +202,49 @@ class ImageClassificationAi(ai.Ai):
             val_ds: テスト用のデータセット
         """
         generator = self.create_generator(normalize)
-        train_ds = generator.flow_from_directory(
-            dataset_path,
-            target_size=(self.image_size.y, self.image_size.x),
-            batch_size=batch_size,
-            seed=define.RANDOM_SEED,
-            class_mode="categorical",
-            subset="training",
-        )
-        val_ds = generator.flow_from_directory(
-            dataset_path,
-            target_size=(self.image_size.y, self.image_size.x),
-            batch_size=batch_size,
-            seed=define.RANDOM_SEED,
-            class_mode="categorical",
-            subset="validation",
-        )
+        if Path(dataset_path).is_dir():
+            train_ds = generator.flow_from_directory(
+                dataset_path,
+                target_size=(self.image_size.y, self.image_size.x),
+                batch_size=batch_size,
+                seed=define.RANDOM_SEED,
+                class_mode="categorical",
+                subset="training",
+            )
+            val_ds = generator.flow_from_directory(
+                dataset_path,
+                target_size=(self.image_size.y, self.image_size.x),
+                batch_size=batch_size,
+                seed=define.RANDOM_SEED,
+                class_mode="categorical",
+                subset="validation",
+            )
+        else:
+            df = pandas.read_csv(dataset_path)
+            df = df.dropna(subset=[self.y_col_name])                    # 空の行を取り除く
+            df = df.sample(frac=1, random_state=0)                      # ランダムに並び変える
+            train_ds = generator.flow_from_dataframe(
+                df,
+                directory=str(Path(dataset_path).parent),              # csv ファイルが保存されていたディレクトリを画像ファイルの親ディレクトリにする
+                y_col=self.y_col_name,
+                target_size=(self.image_size.y, self.image_size.x),
+                batch_size=batch_size,
+                seed=define.RANDOM_SEED,
+                class_mode="categorical",
+                subset="training",
+                validate_filenames=False,                               # パスチェックを行わない
+            )
+            val_ds = generator.flow_from_dataframe(
+                df,
+                directory=str(Path(dataset_path).parent),
+                y_col=self.y_col_name,
+                target_size=(self.image_size.y, self.image_size.x),
+                batch_size=batch_size,
+                seed=define.RANDOM_SEED,
+                class_mode="categorical",
+                subset="validation",
+                validate_filenames=False,                               # パスチェックを行わない
+            )
         return train_ds, val_ds     # [[[img*batch], [class*batch]], ...] の形式
 
     def count_image_from_dataset(self, dataset: Any) -> tuple:
