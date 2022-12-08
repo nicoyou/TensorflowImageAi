@@ -202,6 +202,8 @@ class ImageClassificationAi(ai.Ai):
             val_ds: テスト用のデータセット
         """
         generator = self.create_generator(normalize)
+        generator_val = self.create_generator(normalize, True)
+
         if Path(dataset_path).is_dir():
             train_ds = generator.flow_from_directory(
                 dataset_path,
@@ -211,7 +213,7 @@ class ImageClassificationAi(ai.Ai):
                 class_mode="categorical",
                 subset="training",
             )
-            val_ds = generator.flow_from_directory(
+            val_ds = generator_val.flow_from_directory(
                 dataset_path,
                 target_size=(self.image_size.y, self.image_size.x),
                 batch_size=batch_size,

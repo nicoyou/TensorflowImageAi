@@ -165,6 +165,8 @@ class ImageRegressionAi(ai.Ai):
             val_ds: テスト用のデータセット
         """
         generator = self.create_generator(normalize)
+        generator_val = self.create_generator(normalize, True)
+
         df = pandas.read_csv(data_csv_path)
         df = df.dropna(subset=[self.y_col_name])                    # 空の行を取り除く
         df = df.sample(frac=1, random_state=0)                      # ランダムに並び変える
@@ -179,7 +181,7 @@ class ImageRegressionAi(ai.Ai):
             subset="training",
             validate_filenames=False,                               # パスチェックを行わない
         )
-        val_ds = generator.flow_from_dataframe(
+        val_ds = generator_val.flow_from_dataframe(
             df,
             directory=Path(data_csv_path).parent,
             y_col=self.y_col_name,

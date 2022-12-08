@@ -167,6 +167,8 @@ class ImageMultiLabelAi(ai.Ai):
             val_ds: テスト用のデータセット
         """
         generator = self.create_generator(normalize)
+        generator_val = self.create_generator(normalize, True)
+
         df = pandas.read_csv(data_csv_path)
         df = df.dropna(subset=[self.y_col_name])                    # 空の行を取り除く
         df[self.y_col_name] = df[self.y_col_name].str.split(",")    # 複数のラベルを格納している列は文字列からリストに変換する
@@ -182,7 +184,7 @@ class ImageMultiLabelAi(ai.Ai):
             subset="training",
             validate_filenames=False,                               # パスチェックを行わない
         )
-        val_ds = generator.flow_from_dataframe(
+        val_ds = generator_val.flow_from_dataframe(
             df,
             directory=str(Path(data_csv_path).parent),
             y_col=self.y_col_name,
