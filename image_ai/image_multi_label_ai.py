@@ -7,7 +7,6 @@ import matplotlib.pyplot as plt
 import nlib3
 import numpy as np
 import pandas
-import resnet_rs
 import tensorflow as tf
 from keras import backend
 
@@ -81,6 +80,7 @@ class ImageMultiLabelAi(ai.Ai):
         Returns:
             tensorflow のモデル
         """
+        import resnet_rs
         resnet = resnet_rs.ResNetRS152(include_top=False, input_shape=define.DEFAULT_INPUT_SHAPE, weights="imagenet-i224")
 
         x = tf.keras.layers.Flatten(input_shape=resnet.output_shape[1:])(resnet.output)
@@ -107,6 +107,7 @@ class ImageMultiLabelAi(ai.Ai):
         Returns:
             tensorflow のモデル
         """
+        import resnet_rs
         resnet = resnet_rs.ResNetRS152(include_top=False, input_shape=define.DEFAULT_INPUT_SHAPE, weights="imagenet-i224")
 
         top_model = tf.keras.Sequential()

@@ -12,9 +12,9 @@ pandas
 scipy
 
 # Model diagram output
-pydot
-pydotplus
-graphviz
+# pydot
+# pydotplus
+# graphviz
 
 # ResNet-RS trained model
-git+https://github.com/sebastian-sz/resnet-rs-keras@main
+# git+https://github.com/sebastian-sz/resnet-rs-keras@main

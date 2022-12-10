@@ -6,7 +6,6 @@ from typing import Any
 import matplotlib.pyplot as plt
 import nlib3
 import pandas
-import resnet_rs
 import tensorflow as tf
 
 from . import define
@@ -80,6 +79,7 @@ class ImageRegressionAi(ai.Ai):
         Returns:
             tensorflow のモデル
         """
+        import resnet_rs
         resnet = resnet_rs.ResNetRS152(include_top=False, input_shape=define.DEFAULT_INPUT_SHAPE, weights="imagenet-i224")
 
         x = tf.keras.layers.Flatten(input_shape=resnet.output_shape[1:])(resnet.output)
@@ -105,6 +105,7 @@ class ImageRegressionAi(ai.Ai):
         Returns:
             tensorflow のモデル
         """
+        import resnet_rs
         resnet = resnet_rs.ResNetRS152(include_top=False, input_shape=define.DEFAULT_INPUT_SHAPE, weights="imagenet-i224")
 
         top_model = tf.keras.Sequential()
