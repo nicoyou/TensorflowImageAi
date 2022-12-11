@@ -55,7 +55,7 @@ class GanDataKey(str, enum.Enum):
 
 
 RANDOM_SEED: Final[int] = 54
-CURRENT_DIR: Final[Path] = Path(__file__).parent
+CURRENT_DIR: Final[Path] = Path().cwd()
 MODEL_DIR: Final[Path] = CURRENT_DIR / "models"
 MODEL_FILE: Final[str] = "model"
 

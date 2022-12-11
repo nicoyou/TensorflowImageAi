@@ -16,3 +16,8 @@ __pycache__
 /data/
 # テスト段階のプログラム
 /test/
+
+# パッケージ化
+/build/
+/dist/
+/tensorflow_image.egg-info/
