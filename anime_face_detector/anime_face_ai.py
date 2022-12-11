@@ -4,7 +4,7 @@ from pathlib import Path
 import tqdm
 from PIL import Image
 
-import image_ai
+import tensorflow_image as tfimg
 
 from . import AnimeFaceDetector
 from . import define
@@ -26,7 +26,7 @@ class AnimeFaceAi():
         Returns:
             切り抜いた顔の数
         """
-        images = image_ai.get_image_path_from_dir(in_dir)
+        images = tfimg.get_image_path_from_dir(in_dir)
         count = 0
         for image in tqdm.tqdm(images):
             out_path = Path(out_dir, Path(image).relative_to(in_dir))   # 画像を探したディレクトリを root としてそれ以降のパスを引き継ぐ
@@ -88,6 +88,6 @@ if __name__ == "__main__":
 
     afai = AnimeFaceAi()
     image_dir = "./dataset"
-    images = image_ai.get_image_path_from_dir(image_dir)
+    images = tfimg.get_image_path_from_dir(image_dir)
     nlib3.save_json(Path(image_dir, "image_data.json"), afai.get_face_data_from_imagelist(images))
     #afai.crop_image_face_dir("./dataset", "./out")
