@@ -12,11 +12,11 @@ with open(os.path.join(here, "README.md"), encoding="utf-8") as f:
 
 with open(os.path.join(here, package_name.replace("-", "_"), "__init__.py")) as f:
     init_text = f.read()
-    version = re.search(r'__version__\s*=\s*[\'\"](.+?)[\'\"]', init_text).group(1)
-    license = re.search(r'__license__\s*=\s*[\'\"](.+?)[\'\"]', init_text).group(1)
-    author = re.search(r'__author__\s*=\s*[\'\"](.+?)[\'\"]', init_text).group(1)
-    author_email = re.search(r'__author_email__\s*=\s*[\'\"](.+?)[\'\"]', init_text).group(1)
-    url = re.search(r'__url__\s*=\s*[\'\"](.+?)[\'\"]', init_text).group(1)
+    version = re.search(r'__version__:\s*Final\[str\]\s*=\s*[\'\"](.+?)[\'\"]', init_text).group(1)
+    license = re.search(r'__license__:\s*Final\[str\]\s*=\s*[\'\"](.+?)[\'\"]', init_text).group(1)
+    author = re.search(r'__author__:\s*Final\[str\]\s*=\s*[\'\"](.+?)[\'\"]', init_text).group(1)
+    author_email = re.search(r'__author_email__:\s*Final\[str\]\s*=\s*[\'\"](.+?)[\'\"]', init_text).group(1)
+    url = re.search(r'__url__:\s*Final\[str\]\s*=\s*[\'\"](.+?)[\'\"]', init_text).group(1)
 
 assert version
 assert license
