@@ -48,7 +48,7 @@ class Ai(metaclass=abc.ABCMeta):
         self.model_name = model_name
         self.ai_type = ai_type
         self.image_size = nlib3.Vector2(define.DEFAULT_IMAGE_SIZE, define.DEFAULT_IMAGE_SIZE)
-        self.y_col_name = "class"
+        self.set_y_col_name("class")
         return
 
     def preprocess_image(self, img_path: Path | str, normalize: bool = False) -> tf.Tensor:

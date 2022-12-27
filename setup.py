@@ -26,7 +26,7 @@ assert url
 
 setuptools.setup(
     name=package_name,                                          # パッケージ名 ( プロジェクト名 )
-    packages=[package_name.replace("-", "_")],                  # パッケージ内 ( プロジェクト内 ) のパッケージ名をリスト形式で指定 (ここを指定しないとパッケージが含まれずに、テキストのみのパッケージになってしまう)
+    packages=[package_name.replace("-", "_")],                  # パッケージ内 ( プロジェクト内 ) のパッケージ名をリスト形式で指定 ( ここを指定しないとパッケージが含まれずに、テキストのみのパッケージになってしまう )
     version=version,                                            # バージョン
     license=license,                                            # ライセンス
     install_requires=[                                          # pip installする際に同時にインストールされるパッケージ名をリスト形式で指定
@@ -52,5 +52,5 @@ setuptools.setup(
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3 :: Only",
         "Programming Language :: Python :: 3.10",
-    ],                                                          # パッケージ(プロジェクト)の分類 ( https://pypi.org/classifiers/ )
+    ],                                                          # パッケージ ( プロジェクト ) の分類 ( https://pypi.org/classifiers/ )
 )

@@ -17,7 +17,7 @@ class ImageMultiLabelAi(ai.Ai):
     """多ラベル分類AI"""
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(define.AiType.multi_label, *args, **kwargs)
-        self.y_col_name = "labels"          # 初期値を変更する
+        self.set_y_col_name("labels")
         return
 
     def compile_model(self, model: Any, learning_rate: float = 0.0002):

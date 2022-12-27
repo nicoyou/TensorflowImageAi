@@ -1,6 +1,6 @@
+__pycache__
 /.venv/
 /.vscode/
-__pycache__
 /anime_face_detector/LICENSE
 
 # tensorflow GPUで使用するdll
