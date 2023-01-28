@@ -12,23 +12,26 @@ class AiType(str, enum.Enum):
 
 
 class ModelType(str, enum.Enum):
-    unknown = "unknown"
     vgg16_512 = "vgg16_512"
     mobile_net_v2 = "mobile_net_v2"
-    resnet_rs152_256 = "resnet_rs152_256"
-    resnet_rs152_512x2 = "resnet_rs152_512x2"
-    resnet_rs152_256_regr = "resnet_rs152_256_regr"
-    resnet_rs152_512x2_regr = "resnet_rs152_512x2_regr"
-    resnet_rs152_256_multi_label = "resnet_rs152_256_multi_label"
-    resnet_rs152_512x2_multi_label = "resnet_rs152_512x2_multi_label"
+    mobile_net_v2_regr = "mobile_net_v2_regr"
+    mobile_net_v2_multi_label = "mobile_net_v2_multi_label"
     efficient_net_v2_b0 = "efficient_net_v2_b0"
     efficient_net_v2_s = "efficient_net_v2_s"
     efficient_net_v2_b0_regr = "efficient_net_v2_b0_regr"
     efficient_net_v2_s_regr = "efficient_net_v2_s_regr"
     efficient_net_v2_b0_multi_label = "efficient_net_v2_b0_multi_label"
     efficient_net_v2_s_multi_label = "efficient_net_v2_s_multi_label"
+    resnet_rs152_256 = "resnet_rs152_256"
+    resnet_rs152_512x2 = "resnet_rs152_512x2"
+    resnet_rs152_256_regr = "resnet_rs152_256_regr"
+    resnet_rs152_512x2_regr = "resnet_rs152_512x2_regr"
+    resnet_rs152_256_multi_label = "resnet_rs152_256_multi_label"
+    resnet_rs152_512x2_multi_label = "resnet_rs152_512x2_multi_label"
 
     pix2pix = "pix2pix"
+    
+    unknown = "unknown"
 
 
 class AiDataKey(str, enum.Enum):

@@ -103,7 +103,7 @@ class ImageClassificationAi(ai.Ai):
             for layer in mobile_net_v2.layers[:154]:
                 layer.trainable = False
 
-        return self.compile_model(mobile_net_v2, 0.001)
+        return self.compile_model(mobile_net_v2, 0.003)
 
     def create_model_resnet_rs_256(self, num_classes: int, trainable: bool) -> Any:
         """ResNet_RSの転移学習モデルを作成する
@@ -237,7 +237,7 @@ class ImageClassificationAi(ai.Ai):
                 subset="training",
                 validate_filenames=False,                               # パスチェックを行わない
             )
-            val_ds = generator.flow_from_dataframe(
+            val_ds = generator_val.flow_from_dataframe(
                 df,
                 directory=str(Path(dataset_path).parent),
                 y_col=self.y_col_name,
