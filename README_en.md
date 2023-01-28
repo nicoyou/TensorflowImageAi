@@ -11,6 +11,7 @@ Each parameter that can be set for deep learning is optimized with generic value
 [![PyPI](https://img.shields.io/pypi/v/tensorflow-image)](https://pypi.org/project/tensorflow-image/)
 ![Python versions](https://img.shields.io/pypi/pyversions/tensorflow-image)
 
+---
 
 ## Installation
 ```bash
@@ -83,6 +84,19 @@ print(mlai.result_to_label_dict(result))
 print(mlai.result_to_labelname(result, 0.5))
 ```
 
+---
+
+## Supported Models
+- MobileNetV2
+- VGG16
+- EfficientNetV2
+- ResNet-RS
+
+
+To use ResNet-RS, you must additionally pip install the following repository
+> git+https://github.com/sebastian-sz/resnet-rs-keras@main
+
+---
 
 ## Author
 Nicoyou

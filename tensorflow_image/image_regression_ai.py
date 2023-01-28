@@ -42,6 +42,8 @@ class ImageRegressionAi(ai.Ai):
             tensorflow のモデル
         """
         match model_type:
+            case define.ModelType.mobile_net_v2_regr:
+                return self.create_model_mobile_net_v2(trainable)
             case define.ModelType.resnet_rs152_256_regr:
                 return self.create_model_resnet_rs_256(trainable)
             case define.ModelType.resnet_rs152_512x2_regr:
@@ -69,11 +71,25 @@ class ImageRegressionAi(ai.Ai):
             tf.cast(len(y_pred), tf.float32))
         return result
 
+    def create_model_mobile_net_v2(self, trainable: bool) -> Any:
+        """MobileNetV2 のモデルを作成する
+
+        Args:
+            trainable: 特徴量抽出部を再学習するかどうか
+
+        Returns:
+            tensorflow のモデル
+        """
+        if not trainable:
+            nlib3.print_error_log("MobileNetV2 モデルでは trainable に False を指定できません")
+
+        mobile_net_v2 = tf.keras.applications.mobilenet_v2.MobileNetV2(weights=None, classes=1, classifier_activation="linear")
+        return self.compile_model(mobile_net_v2, 0.001)
+
     def create_model_resnet_rs_256(self, trainable: bool) -> Any:
         """ResNet_RSの転移学習モデルを作成する
 
         Args:
-            num_classes: 分類するクラスの数
             trainable: 特徴量抽出部を再学習するかどうか
 
         Returns:
@@ -127,7 +143,6 @@ class ImageRegressionAi(ai.Ai):
         """EfficientNetV2B0の転移学習モデルを作成する
 
         Args:
-            num_classes: 分類するクラスの数
             trainable: 特徴量抽出部を再学習するかどうか
 
         Returns:
@@ -135,6 +150,7 @@ class ImageRegressionAi(ai.Ai):
         """
         if not trainable:
             nlib3.print_error_log("EfficientNetV2 モデルでは trainable に False を指定できません")
+
         model = tf.keras.applications.EfficientNetV2B0(weights=None, classes=1, classifier_activation="linear")
         return self.compile_model(model, 0.001)
 
@@ -142,7 +158,6 @@ class ImageRegressionAi(ai.Ai):
         """EfficientNetV2Sの転移学習モデルを作成する
 
         Args:
-            num_classes: 分類するクラスの数
             trainable: 特徴量抽出部を再学習するかどうか
 
         Returns:
@@ -150,6 +165,7 @@ class ImageRegressionAi(ai.Ai):
         """
         if not trainable:
             nlib3.print_error_log("EfficientNetV2 モデルでは trainable に False を指定できません")
+
         model = tf.keras.applications.EfficientNetV2S(weights=None, classes=1, classifier_activation="linear")
         return self.compile_model(model, 0.001)
 

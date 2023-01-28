@@ -63,9 +63,11 @@ class Ai(metaclass=abc.ABCMeta):
         """
         img_raw = tf.io.read_file(str(img_path))
         image = tf.image.decode_image(img_raw, channels=3)
+        if len(image.shape) > 3:            # gif 画像などのアニメーションが存在する場合は 1 枚目を代表とする
+            image = image[0]
         image = tf.image.resize(image, (self.image_size.y, self.image_size.x))
         if normalize:
-            image /= 255.0                  # normalize to [0,1] range
+            image /= 255.0                  # normalize to [0, 1] range
         image = tf.expand_dims(image, 0)    # 次元を一つ増やしてバッチ化する
         return image
 
@@ -82,7 +84,7 @@ class Ai(metaclass=abc.ABCMeta):
         tf.keras.preprocessing.image.img_to_array(image)
         image = tf.image.resize(image, (self.image_size.y, self.image_size.x))
         if normalize:
-            image /= 255.0                  # normalize to [0,1] range
+            image /= 255.0                  # normalize to [0, 1] range
         image = tf.expand_dims(image, 0)    # 次元を一つ増やしてバッチ化する
         return image
 
@@ -164,7 +166,8 @@ class Ai(metaclass=abc.ABCMeta):
             self.model = self.create_model(model_type, len(class_indices), trainable)
 
         timetaken = tf_callback.TimeCallback()
-        history = self.model.fit(train_ds, validation_data=val_ds, epochs=epochs, callbacks=[timetaken])
+        cp_callback = tf_callback.ModelCheckpoint(filepath=define.MODEL_DIR / self.model_name / "ckpt_{epoch:03d}", save_weights_only=True, verbose=1)
+        history = self.model.fit(train_ds, validation_data=val_ds, epochs=epochs, callbacks=[timetaken, cp_callback])
         self.model.save_weights(define.MODEL_DIR / self.model_name / define.MODEL_FILE)
         self.model_data[define.AiDataKey.version] = self.MODEL_DATA_VERSION
         self.model_data[define.AiDataKey.ai_type] = self.ai_type

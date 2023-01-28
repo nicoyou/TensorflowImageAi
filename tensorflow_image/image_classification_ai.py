@@ -97,13 +97,11 @@ class ImageClassificationAi(ai.Ai):
         Returns:
             tensorflow のモデル
         """
-        mobile_net_v2 = tf.keras.applications.mobilenet_v2.MobileNetV2(classes=num_classes, weights=None)
-
         if not trainable:
-            for layer in mobile_net_v2.layers[:154]:
-                layer.trainable = False
+            nlib3.print_error_log("MobileNetV2 モデルでは trainable に False を指定できません")
 
-        return self.compile_model(mobile_net_v2, 0.001)
+        mobile_net_v2 = tf.keras.applications.mobilenet_v2.MobileNetV2(weights=None, classes=num_classes)
+        return self.compile_model(mobile_net_v2, 0.003)
 
     def create_model_resnet_rs_256(self, num_classes: int, trainable: bool) -> Any:
         """ResNet_RSの転移学習モデルを作成する
@@ -194,7 +192,7 @@ class ImageClassificationAi(ai.Ai):
         """訓練用のデータセットを読み込む
 
         Args:
-            dataset_path: 教師データが保存されているディレクトリを指定する ( csvでも可能 )
+            dataset_path: 教師データが保存されているディレクトリを指定する ( csv でも可能 )
             batch_size: バッチサイズ
             normalize: 画像を前処理で 0 ～ 1 の範囲に正規化するかどうか
 
@@ -237,7 +235,7 @@ class ImageClassificationAi(ai.Ai):
                 subset="training",
                 validate_filenames=False,                               # パスチェックを行わない
             )
-            val_ds = generator.flow_from_dataframe(
+            val_ds = generator_val.flow_from_dataframe(
                 df,
                 directory=str(Path(dataset_path).parent),
                 y_col=self.y_col_name,
@@ -260,11 +258,14 @@ class ImageClassificationAi(ai.Ai):
             class_image_num: それぞれの分類クラスの画像数が格納されたリスト
             class_indices: データセットのクラス名からクラスインデックスへのマッピングを含む辞書
         """
-        progbar = tf.keras.utils.Progbar(len(dataset))
         class_image_num = []
         for i in range(len(dataset.class_indices)):     # 各クラスの読み込み枚数を 0 で初期化して、カウント用のキーを生成する ( 3 クラス中の 1 番目なら[1, 0, 0] )
             class_image_num.append([0, [1 if i == row else 0 for row in range(len(dataset.class_indices))]])
 
+        if len(dataset) == 0:
+            nlib3.print_error_log("教師データが 0 のデータセットです")
+            return [], dataset.class_indices
+        progbar = tf.keras.utils.Progbar(len(dataset))
         for i, row in enumerate(dataset):
             for image_num in class_image_num:                                                       # 各クラスのデータ数を計測する
                 image_num[0] += np.count_nonzero([np.all(x) for x in (row[1] == image_num[1])])     # numpyでキーが一致するものをカウントする

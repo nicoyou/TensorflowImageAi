@@ -11,6 +11,7 @@
 [![PyPI](https://img.shields.io/pypi/v/tensorflow-image)](https://pypi.org/project/tensorflow-image/)
 ![Python versions](https://img.shields.io/pypi/pyversions/tensorflow-image)
 
+---
 
 ## インストール方法
 ```bash
@@ -83,6 +84,19 @@ print(mlai.result_to_label_dict(result))
 print(mlai.result_to_labelname(result, 0.5))
 ```
 
+---
+
+## 対応モデル
+- MobileNetV2
+- VGG16
+- EfficientNetV2
+- ResNet-RS
+
+
+ResNet-RS を使用するには以下のリポジトリを追加で pip install する必要があります
+> git+https://github.com/sebastian-sz/resnet-rs-keras@main
+
+---
 
 ## 制作者
 Nicoyou

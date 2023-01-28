@@ -45,6 +45,8 @@ class ImageMultiLabelAi(ai.Ai):
             tensorflow のモデル
         """
         match model_type:
+            case define.ModelType.mobile_net_v2_multi_label:
+                return self.create_model_mobile_net_v2(num_classes, trainable)
             case define.ModelType.resnet_rs152_256_multi_label:
                 return self.create_model_resnet_rs_256(num_classes, trainable)
             case define.ModelType.resnet_rs152_512x2_multi_label:
@@ -69,6 +71,22 @@ class ImageMultiLabelAi(ai.Ai):
         pred = backend.cast(backend.greater_equal(y_pred, 0.5), tf.float32)
         flag = backend.cast(backend.equal(y_true, pred), tf.float32)
         return backend.mean(flag, axis=-1)
+
+    def create_model_mobile_net_v2(self, num_classes: int, trainable: bool) -> Any:
+        """MobileNetV2 のモデルを作成する
+
+        Args:
+            num_classes: 分類するクラスの数
+            trainable: 特徴量抽出部を再学習するかどうか
+
+        Returns:
+            tensorflow のモデル
+        """
+        if not trainable:
+            nlib3.print_error_log("MobileNetV2 モデルでは trainable に False を指定できません")
+
+        model = tf.keras.applications.mobilenet_v2.MobileNetV2(weights=None, classes=num_classes, classifier_activation="sigmoid")
+        return self.compile_model(model, 0.003)
 
     def create_model_resnet_rs_256(self, num_classes: int, trainable: bool) -> Any:
         """ResNet_RSの転移学習モデルを作成する
@@ -137,6 +155,7 @@ class ImageMultiLabelAi(ai.Ai):
         """
         if not trainable:
             nlib3.print_error_log("EfficientNetV2 モデルでは trainable に False を指定できません")
+
         model = tf.keras.applications.EfficientNetV2B0(weights=None, classes=num_classes, classifier_activation="sigmoid")
         return self.compile_model(model, 0.001)
 
@@ -152,6 +171,7 @@ class ImageMultiLabelAi(ai.Ai):
         """
         if not trainable:
             nlib3.print_error_log("EfficientNetV2 モデルでは trainable に False を指定できません")
+
         model = tf.keras.applications.EfficientNetV2S(weights=None, classes=num_classes, classifier_activation="sigmoid")
         return self.compile_model(model, 0.001)
 
