@@ -63,6 +63,8 @@ class Ai(metaclass=abc.ABCMeta):
         """
         img_raw = tf.io.read_file(str(img_path))
         image = tf.image.decode_image(img_raw, channels=3)
+        if len(image.shape) > 3:            # gif 画像などのアニメーションが存在する場合は 1 枚目を代表とする
+            image = image[0]
         image = tf.image.resize(image, (self.image_size.y, self.image_size.x))
         if normalize:
             image /= 255.0                  # normalize to [0,1] range
