@@ -1,9 +1,10 @@
-import enum
 from pathlib import Path
 from typing import Final
 
+import nlib3
 
-class AiType(str, enum.Enum):
+
+class AiType(nlib3.StrEnum):
     categorical = "categorical"
     multi_label = "multi_label"
     regression = "regression"
@@ -11,7 +12,7 @@ class AiType(str, enum.Enum):
     gan = "genera_tive_adversarial_networks"
 
 
-class ModelType(str, enum.Enum):
+class ModelType(nlib3.StrEnum):
     vgg16_512 = "vgg16_512"
     mobile_net_v2 = "mobile_net_v2"
     mobile_net_v2_regr = "mobile_net_v2_regr"
@@ -30,11 +31,11 @@ class ModelType(str, enum.Enum):
     resnet_rs152_512x2_multi_label = "resnet_rs152_512x2_multi_label"
 
     pix2pix = "pix2pix"
-    
+
     unknown = "unknown"
 
 
-class AiDataKey(str, enum.Enum):
+class AiDataKey(nlib3.StrEnum):
     version = "version"
     model = "model"
     ai_type = "ai_type"
@@ -49,7 +50,7 @@ class AiDataKey(str, enum.Enum):
     val_loss = "val_loss"
 
 
-class GanDataKey(str, enum.Enum):
+class GanDataKey(nlib3.StrEnum):
     gen_total_loss = "gen_total_loss"
     gen_gan_loss = "gen_gan_loss"
     gen_l1_loss = "gen_l1_loss"
