@@ -97,12 +97,10 @@ class ImageClassificationAi(ai.Ai):
         Returns:
             tensorflow のモデル
         """
-        mobile_net_v2 = tf.keras.applications.mobilenet_v2.MobileNetV2(classes=num_classes, weights=None)
-
         if not trainable:
-            for layer in mobile_net_v2.layers[:154]:
-                layer.trainable = False
+            nlib3.print_error_log("MobileNetV2 モデルでは trainable に False を指定できません")
 
+        mobile_net_v2 = tf.keras.applications.mobilenet_v2.MobileNetV2(weights=None, classes=num_classes)
         return self.compile_model(mobile_net_v2, 0.003)
 
     def create_model_resnet_rs_256(self, num_classes: int, trainable: bool) -> Any:
