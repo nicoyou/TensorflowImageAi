@@ -192,7 +192,7 @@ class ImageClassificationAi(ai.Ai):
         """訓練用のデータセットを読み込む
 
         Args:
-            dataset_path: 教師データが保存されているディレクトリを指定する ( csvでも可能 )
+            dataset_path: 教師データが保存されているディレクトリを指定する ( csv でも可能 )
             batch_size: バッチサイズ
             normalize: 画像を前処理で 0 ～ 1 の範囲に正規化するかどうか
 
@@ -258,11 +258,14 @@ class ImageClassificationAi(ai.Ai):
             class_image_num: それぞれの分類クラスの画像数が格納されたリスト
             class_indices: データセットのクラス名からクラスインデックスへのマッピングを含む辞書
         """
-        progbar = tf.keras.utils.Progbar(len(dataset))
         class_image_num = []
         for i in range(len(dataset.class_indices)):     # 各クラスの読み込み枚数を 0 で初期化して、カウント用のキーを生成する ( 3 クラス中の 1 番目なら[1, 0, 0] )
             class_image_num.append([0, [1 if i == row else 0 for row in range(len(dataset.class_indices))]])
 
+        if len(dataset) == 0:
+            nlib3.print_error_log("教師データが 0 のデータセットです")
+            return [], dataset.class_indices
+        progbar = tf.keras.utils.Progbar(len(dataset))
         for i, row in enumerate(dataset):
             for image_num in class_image_num:                                                       # 各クラスのデータ数を計測する
                 image_num[0] += np.count_nonzero([np.all(x) for x in (row[1] == image_num[1])])     # numpyでキーが一致するものをカウントする
